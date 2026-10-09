@@ -3,6 +3,7 @@ import { assertClickable, ForbiddenClickError, setNativeValue } from "@/src/dom/
 import { locateBy, locateField } from "@/src/dom/locate";
 import { matchOption } from "@/src/dom/pickers";
 import { snapshotElements } from "@/src/dom/snapshot";
+import { forbiddenWords, isForbidden, lockSubmission } from "@/src/dom/guard";
 import { descriptionWithHashtags, suggestedPrice } from "@/src/fill/fill";
 
 const forbidden = DEFAULT_FORM_MAP.forbiddenClickText;
@@ -21,6 +22,62 @@ describe("safety", () => {
   });
   it("allows normal options", () => {
     expect(() => assertClickable(document.getElementById("d")!, forbidden)).not.toThrow();
+  });
+});
+
+describe("only a human publishes", () => {
+  beforeEach(() => {
+    document.body.innerHTML = `
+      <form id="f">
+        <button id="icon" aria-label="Artikel hochladen"><svg></svg></button>
+        <button id="tid" data-testid="item-upload-submit-button">✓</button>
+        <input id="img" type="image" alt="">
+        <input id="val" type="button" value="Veröffentlichen">
+        <button id="ttl" title="Als Entwurf speichern">…</button>
+        <a id="away" href="/member/123">Profil</a>
+        <a id="hash" href="#size">Größe</a>
+        <div role="option" id="opt">Sehr gut</div>
+        <div role="option" id="unter">Unterwäsche</div>
+        <button type="button" id="versand">Versenden innerhalb 2 Tagen</button>
+      </form>`;
+  });
+
+  it.each(["icon", "tid", "img", "val", "ttl", "away"])("treats #%s as publish-like", (id) => {
+    expect(isForbidden(document.getElementById(id)!)).toBe(true);
+  });
+
+  it.each(["hash", "opt", "unter", "versand"])("allows normal control #%s (whole words only)", (id) => {
+    expect(isForbidden(document.getElementById(id)!)).toBe(false);
+  });
+
+  it("a remote form map cannot remove the built-in words", () => {
+    expect(forbiddenWords(["nur-das"])).toEqual(expect.arrayContaining(["hochladen", "upload", "veroffentlichen", "nur-das"]));
+    expect(isForbidden(document.getElementById("icon")!, [])).toBe(true);
+  });
+
+  it("the snapshot for the AI never contains publish-like elements", () => {
+    const ids = snapshotElements(document, []).map((e) => document.querySelector(`[data-thrift-id="${e.id}"]`)!.id);
+    expect(ids).toEqual(expect.arrayContaining(["hash", "opt", "versand"]));
+    for (const bad of ["icon", "tid", "img", "val", "ttl", "away"]) expect(ids).not.toContain(bad);
+  });
+
+  it("while filling, submits and scripted clicks on publish controls are blocked", () => {
+    const form = document.getElementById("f") as HTMLFormElement;
+    let submitted = 0;
+    let clicked = 0;
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      submitted++;
+    });
+    document.getElementById("icon")!.addEventListener("click", () => clicked++);
+    const release = lockSubmission(document);
+    form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    document.getElementById("icon")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(submitted).toBe(0);
+    expect(clicked).toBe(0);
+    release();
+    form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    expect(submitted).toBe(1);
   });
 });
 

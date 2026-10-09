@@ -22,6 +22,7 @@
 </head>
 <body>
 <h1>Artikel verkaufen</h1>
+<form id="itemForm">
 <h2>Fotos</h2>
 <div class="box photos" id="photoBox">
   <div id="thumbs"></div>
@@ -42,6 +43,7 @@
 
 <button type="button" id="draft">Entwurf speichern</button>
 <button type="submit" id="upload">Hochladen</button>
+</form>
 
 <script>
 (() => {
@@ -57,6 +59,7 @@
   }
   document.getElementById("upload").addEventListener("click", () => { state.submitted = true; });
   document.getElementById("draft").addEventListener("click", () => { state.draft = true; });
+  document.getElementById("itemForm").addEventListener("submit", (e) => { e.preventDefault(); state.submitted = true; });
 
   const TREE = {
     Damen: { Kleidung: { "Pullover & Sweatshirts": ["Strickpullover", "Sweatshirts", "Hoodies"], Jeans: ["Skinny", "Straight"], Kleider: ["Minikleider", "Maxikleider"] }, Schuhe: ["Sneaker", "Stiefel"] },

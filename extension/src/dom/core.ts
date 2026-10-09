@@ -1,4 +1,5 @@
 /** Small DOM helpers shared by the fillers. Framework-agnostic (works with React-controlled inputs). */
+import { forbiddenReason } from "./guard";
 
 export const norm = (s: string | null | undefined): string =>
   (s ?? "")
@@ -32,21 +33,13 @@ export function isVisible(el: Element): boolean {
 
 export class ForbiddenClickError extends Error {}
 
-/** Throws if an element looks like a submit/upload/save control. The extension never submits. */
-export function assertClickable(el: Element, forbidden: string[]): void {
-  const html = el as HTMLElement & { type?: string; value?: string };
-  const btn = el.closest("button, input, a, [role=button]") as (HTMLElement & { type?: string }) | null;
-  const target = btn ?? html;
-  if ((target.tagName === "BUTTON" || target.tagName === "INPUT") && target.type === "submit") {
-    throw new ForbiddenClickError("submit control");
-  }
-  const label = norm([textOf(target), target.getAttribute("aria-label"), (target as HTMLInputElement).value].join(" "));
-  for (const word of forbidden) {
-    if (new RegExp(`(^|\\W)${norm(word)}(\\W|$)`).test(label)) throw new ForbiddenClickError(`forbidden: ${word}`);
-  }
+/** Throws if an element looks like a submit/upload/save control (see guard.ts). The extension never submits. */
+export function assertClickable(el: Element, forbidden: readonly string[]): void {
+  const reason = forbiddenReason(el, forbidden);
+  if (reason) throw new ForbiddenClickError(reason);
 }
 
-export function safeClick(el: Element, forbidden: string[]): void {
+export function safeClick(el: Element, forbidden: readonly string[]): void {
   assertClickable(el, forbidden);
   const h = el as HTMLElement;
   h.scrollIntoView?.({ block: "center" });

@@ -95,6 +95,10 @@ export default defineContentScript({
         tone = t;
         if (changed && lastAttributes) panel.setStatus("Tippe „Neu schreiben“, um den Text anzupassen.");
       },
+      onLayoutChange: (l) => {
+        settings = { ...settings, panelDock: l.dock, panelCollapsed: l.collapsed };
+        void saveSettings({ panelDock: l.dock, panelCollapsed: l.collapsed }).catch(() => {});
+      },
       onAcceptNotice: () => {
         void saveSettings({ noticeAccepted: true }).then((s) => {
           settings = { ...settings, noticeAccepted: s.noticeAccepted };
@@ -104,6 +108,7 @@ export default defineContentScript({
       },
     });
     panel.setStyle(language, tone);
+    panel.setLayout({ dock: settings.panelDock, collapsed: settings.panelCollapsed });
 
     const configured = () => (settings.mode === "server" ? !!(settings.serverUrl && settings.serverToken) : !!settings.apiKey);
     let wasEnabled: boolean | null = null;

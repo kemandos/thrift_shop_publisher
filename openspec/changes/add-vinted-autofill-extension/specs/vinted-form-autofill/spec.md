@@ -67,6 +67,48 @@ The extension SHALL NOT click Vinted's upload button, SHALL NOT call Vinted APIs
 - **WHEN** filling has finished
 - **THEN** the item is not uploaded until the user clicks Vinted's "Hochladen"
 
+### Requirement: Only a human publishes
+Only the user's own (trusted) click SHALL publish, save or delete. The AI, including the navigation model (Jev Router), SHALL NOT be able to trigger it: publish-like controls SHALL never be offered to it, its answers SHALL be re-checked, every extension click SHALL pass the same check, and the form SHALL NOT submit while a fill runs.
+
+#### Scenario: What counts as publish-like
+- **WHEN** a control is a submit button, a link leaving the page, or its text, label, title, value or test id says hochladen, veröffentlichen, speichern, entwurf, löschen, upload, publish, save, draft, delete, submit, posten or inserieren
+- **THEN** it is excluded from element and option lists sent to the AI and the extension never clicks it
+
+#### Scenario: Misbehaving model
+- **WHEN** the AI answers with the id of the "Hochladen" button or tries to submit the form during a fill
+- **THEN** nothing is clicked or submitted, and the affected field is offered as a copy value instead
+
+#### Scenario: Remote form map
+- **WHEN** a form map from the own server lists fewer forbidden words
+- **THEN** the built-in words still apply
+
+#### Scenario: Human click after the fill
+- **WHEN** the fill has finished and the user clicks "Hochladen"
+- **THEN** Vinted receives the click normally
+
+### Requirement: Fits every window and device
+The fill panel SHALL fit any window on Mac, iPhone (portrait and landscape) and iPad (including split view and Stage Manager), never be taller than the window, respect safe areas, and be usable by touch.
+
+#### Scenario: Narrow window or iPhone portrait
+- **WHEN** the window is narrower than 640 px
+- **THEN** the panel is a full-width sheet above the safe area
+
+#### Scenario: iPad, Mac or iPhone landscape
+- **WHEN** the window is 640 px or wider
+- **THEN** the panel is a 360 px card at the right edge, and its content scrolls if the window is short
+
+#### Scenario: Touch device
+- **WHEN** the device uses touch
+- **THEN** controls are at least 44 px high and selects use 16 px text so iOS does not zoom
+
+#### Scenario: Panel covers something
+- **WHEN** the panel covers a Vinted control the user needs
+- **THEN** the user can collapse it to a "✨ Ausfüllen" pill or move it to the top, and it stays that way on that device
+
+#### Scenario: Typing on iPhone
+- **WHEN** the user edits a Vinted field and the keyboard is open
+- **THEN** the panel is hidden until the keyboard closes
+
 ### Requirement: Works in Chrome and in Safari on iPhone
 The same features SHALL work in desktop Chrome and in Safari on iPhone, including photo reading and picker selection on the mobile layout.
 

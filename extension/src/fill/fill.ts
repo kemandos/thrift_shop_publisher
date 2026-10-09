@@ -15,6 +15,7 @@ import { displayedValue, locateField } from "../dom/locate";
 import { isVisible, norm, safeClick, setNativeValue, type Pacer } from "../dom/core";
 import { closePicker, matchOption, nextLevel, openPicker, searchInPicker, type Option } from "../dom/pickers";
 import { elementById, snapshotElements } from "../dom/snapshot";
+import { isForbidden, lockSubmission } from "../dom/guard";
 
 export interface AiApi {
   analyze(p: { photos: Photo[]; style: ListingStyle; categoryOptions: string[] }): Promise<AiResponse<AnalyzeResult>>;
@@ -88,6 +89,8 @@ async function resolve(ctx: FillContext, key: FieldKey): Promise<Element | null>
     });
     if (!result.id) return null;
     let picked = elementById(ctx.doc, result.id);
+    // Second check: whatever the model answers, a publish-like control is never used.
+    if (!picked || isForbidden(picked, ctx.map.forbiddenClickText)) return null;
     if (picked && (spec.type === "text" || spec.type === "textarea" || spec.type === "price")) {
       if (!(picked instanceof HTMLInputElement || picked instanceof HTMLTextAreaElement)) {
         picked = picked.querySelector("input, textarea");
@@ -194,6 +197,15 @@ export async function readCategoryOptions(ctx: FillContext): Promise<string[]> {
 
 /** The whole fill: AI analysis from the photos, then every field. Never submits. */
 export async function fillForm(ctx: FillContext, photos: Photo[], style: ListingStyle): Promise<FillReport> {
+  const release = lockSubmission(ctx.doc, ctx.map.forbiddenClickText);
+  try {
+    return await fillFormUnlocked(ctx, photos, style);
+  } finally {
+    release();
+  }
+}
+
+async function fillFormUnlocked(ctx: FillContext, photos: Photo[], style: ListingStyle): Promise<FillReport> {
   const say = ctx.status ?? (() => {});
   say("Lese Kategorien …");
   const categoryOptions = await readCategoryOptions(ctx).catch(() => [] as string[]);

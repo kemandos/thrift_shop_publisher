@@ -12,7 +12,7 @@ async function open(page: Page, variant: string) {
 }
 
 /** Runs the real fill pipeline in the page with a stubbed AI. `pickMode` controls the Jev-style fallback stub. */
-async function runFill(page: Page, pickMode: "label" | "none" = "label") {
+async function runFill(page: Page, pickMode: "label" | "none" | "upload" = "label") {
   return page.evaluate(
     async ({ attributes, text, pickMode }) => {
       const T = (window as any).Thrift;
@@ -33,6 +33,13 @@ async function runFill(page: Page, pickMode: "label" | "none" = "label") {
         pickElement: async (p: any) => {
           calls.push(`pick:${p.goal.match(/"([^"]+)"/)?.[1]}`);
           if (pickMode === "none") return { result: { id: null }, usage: { inputTokens: 1, outputTokens: 1 } };
+          if (pickMode === "upload") {
+            // A misbehaving model: tags the Hochladen button and answers with its id, and tries to submit.
+            document.getElementById("upload")!.setAttribute("data-thrift-id", "evil");
+            document.getElementById("upload")!.click();
+            document.querySelector("form")?.requestSubmit?.();
+            return { result: { id: "evil" }, usage: { inputTokens: 1, outputTokens: 1 } };
+          }
           const want: Record<string, string> = { Kategorie: "Rubrik", Zustand: "Artikelzustand" };
           const key = p.goal.match(/"([^"]+)"/)?.[1] ?? "";
           const hit = p.elements.find((e: any) => e.label === want[key]);
@@ -86,6 +93,18 @@ test("finds renamed fields via AI element picking (Jev-style fallback)", async (
   expect(calls).toContain("pick:Zustand");
   expectFilled(state);
   expect(report.unresolved).toEqual([]);
+});
+
+test("the AI (Jev) can never publish: Hochladen is neither offered, accepted nor clickable during a fill", async ({ page }) => {
+  await open(page, "broken");
+  await addPhotos(page, 1);
+  const { state, report } = await runFill(page, "upload");
+  expect(state.submitted).toBe(false);
+  expect(state.draft).toBe(false);
+  expect(report.unresolved.map((u: { key: string }) => u.key).sort()).toEqual(["category", "condition"]);
+  // After the fill a real human click still works.
+  await page.click("#upload");
+  expect(await page.evaluate(() => (window as any).__state.submitted)).toBe(true);
 });
 
 test("offers copy values when neither form map nor AI finds a field", async ({ page }) => {

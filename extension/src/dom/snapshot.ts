@@ -1,5 +1,6 @@
 import type { PageElement } from "@thrift/shared";
-import { isVisible, norm, textOf } from "./core";
+import { isVisible, textOf } from "./core";
+import { isForbidden } from "./guard";
 
 const ATTR = "data-thrift-id";
 const INTERACTIVE =
@@ -26,15 +27,15 @@ function labelFor(el: Element): string {
 }
 
 /** Compact list of visible interactive elements for AI element picking (Jev-style fallback). */
-export function snapshotElements(doc: Document, forbidden: string[], max = 150): PageElement[] {
+export function snapshotElements(doc: Document, forbidden: readonly string[], max = 150): PageElement[] {
   const out: PageElement[] = [];
   let i = 0;
   for (const el of Array.from(doc.querySelectorAll(INTERACTIVE))) {
     if (out.length >= max) break;
     if (!isVisible(el) || el.closest("[data-thrift-ui]")) continue;
+    // Jev never even sees publish-like controls.
+    if (isForbidden(el, forbidden)) continue;
     const text = textOf(el).slice(0, 60);
-    const nText = norm(text);
-    if (forbidden.some((f) => nText.includes(norm(f)))) continue;
     const id = el.getAttribute(ATTR) ?? `e${++i}`;
     el.setAttribute(ATTR, id);
     out.push({

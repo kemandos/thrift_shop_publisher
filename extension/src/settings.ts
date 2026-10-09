@@ -20,6 +20,9 @@ export const Settings = z.object({
   closingTextDe: z.string().default(""),
   closingTextEn: z.string().default(""),
   noticeAccepted: z.boolean().default(false),
+  /** Panel position on vinted.de (per device, so the iPhone and the Mac can differ). */
+  panelDock: z.enum(["bottom", "top"]).catch("bottom"),
+  panelCollapsed: z.boolean().catch(false),
 });
 export type Settings = z.infer<typeof Settings>;
 

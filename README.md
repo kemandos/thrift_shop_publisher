@@ -39,6 +39,8 @@ pnpm --filter @thrift/extension build      # → extension/.output/chrome-mv3
 3. Click the Thrift icon → **Einstellungen**. Paste your OpenRouter key (from [openrouter.ai/keys](https://openrouter.ai/keys)), then **Verbindung testen**.
 4. Go to vinted.de → **Artikel verkaufen**, add photos, then tap **✨ Ausfüllen**.
 
+The panel adapts to the window: a bottom sheet on iPhone, a card on iPad and Mac. Use ↑/↓ to move it and – to shrink it to a small "✨ Ausfüllen" pill if it covers something; Thrift remembers this per device.
+
 After a code update, run the build again and click ↻ on the extension in `chrome://extensions`.
 
 ## Install on the iPhone (Safari)
@@ -68,6 +70,7 @@ The end-to-end tests run against `extension/test/fixtures/upload.html`. This is 
 ## Safety rules (built in)
 
 - Thrift fills only the open "Artikel verkaufen" form, and only after you click.
+- Only you publish. The AI (including Jev) never sees, chooses or clicks publish/save/delete controls, its answers are re-checked, and the form can't submit while Thrift is filling.
 - It never clicks "Hochladen" or "Entwurf speichern". Any control with such a label is blocked in code, and the tests check this.
 - It doesn't use the Vinted API, relist, message, or work in the background.
 - Size and brand are only taken from a visible label or logo. Otherwise the field stays empty and is marked.

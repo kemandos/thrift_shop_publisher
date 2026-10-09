@@ -1,4 +1,5 @@
 import { isVisible, norm, pressEscape, safeClick, setNativeValue, textOf, waitFor, type Pacer } from "./core";
+import { isForbidden } from "./guard";
 
 export interface Option {
   el: Element;
@@ -8,7 +9,7 @@ export interface Option {
 const OPTION_SELECTOR =
   "[role=option], [role=menuitem], [role=menuitemradio], [role=menuitemcheckbox], [role=radio], [role=checkbox], [role=treeitem], li, label, button, a, [data-testid*='option'], [data-testid*='item']";
 
-function candidates(root: ParentNode, forbidden: string[]): Option[] {
+function candidates(root: ParentNode, forbidden: readonly string[]): Option[] {
   const seen = new Set<string>();
   const out: Option[] = [];
   for (const el of Array.from(root.querySelectorAll(OPTION_SELECTOR))) {
@@ -18,7 +19,8 @@ function candidates(root: ParentNode, forbidden: string[]): Option[] {
     const label = textOf(el);
     if (!label || label.length > 80) continue;
     const n = norm(label);
-    if (forbidden.some((f) => n === norm(f))) continue;
+    // Neither the AI nor the filler is ever offered a publish-like option.
+    if (isForbidden(el, forbidden)) continue;
     const key = `${n}|${el.tagName}`;
     if (seen.has(key)) continue;
     seen.add(key);
@@ -34,7 +36,7 @@ function candidates(root: ParentNode, forbidden: string[]): Option[] {
 export async function openPicker(
   trigger: Element,
   doc: Document,
-  forbidden: string[],
+  forbidden: readonly string[],
   pace: Pacer,
   timeoutMs = 2000,
 ): Promise<Option[]> {
@@ -53,7 +55,7 @@ export async function nextLevel(
   clicked: Option,
   previous: Option[],
   doc: Document,
-  forbidden: string[],
+  forbidden: readonly string[],
   timeoutMs = 1500,
 ): Promise<Option[] | null> {
   const prev = new Set(previous.map((o) => o.el));
@@ -102,7 +104,7 @@ export async function searchInPicker(
   doc: Document,
   query: string,
   before: Option[],
-  forbidden: string[],
+  forbidden: readonly string[],
   pace: Pacer,
 ): Promise<Option[]> {
   const search = Array.from(doc.querySelectorAll<HTMLInputElement>("input[type=search], input[type=text], input:not([type])"))
