@@ -23,7 +23,7 @@ Greenfield repository. See `proposal.md` for motivation and `specs/` for the beh
 **Goals:**
 - A native iPhone app that a non-technical seller completes their first listing with, guided, in under 5 minutes.
 - AI cost well below 1 ct per listing, and server cost close to zero at small scale.
-- An architecture that can later add a Mac target and more listing languages without rework.
+- An architecture that can later add a Mac target without rework.
 
 **Non-Goals:**
 - Posting to Vinted, Vinted Pro Integrations, Vinted's private API, Safari/browser extensions that fill Vinted's web form.
@@ -112,6 +112,17 @@ Greenfield repository. See `proposal.md` for motivation and `specs/` for the beh
 
 The keyboard must read the App Group container. That requires **"Allow Full Access"**, and iOS shows a privacy warning for it. App Review guideline 4.4.1 requires the keyboard to keep working without Full Access. It is therefore a complete QWERTZ/QWERTY typing keyboard with a listing bar on top. Without Full Access, the bar explains how to enable it instead of inserting text. The keyboard never opens other apps. The onboarding explains why: "the keyboard only reads your prepared listings and sends nothing". The privacy policy says the same.
 
+### D6b — Adding photos
+
+A single "Fotos hinzufügen" button (a glass button in the toolbar, and the empty-state button) opens a menu with three entries:
+- **Aus Mediathek:** `PhotosPicker`, multi-select.
+- **Foto aufnehmen:** the in-app camera.
+- **Einfügen:** SwiftUI `PasteButton`, accepting `Image`/`Data` from the pasteboard. The system paste control needs no "allow paste" prompt.
+
+Two more paths:
+- **Drag and drop** (`.dropDestination(for: Data.self)`) onto the batch or a group.
+- **Share extension** "Inserat erstellen" from Photos (D1).
+
 ### D7 — Onboarding implementation
 
 - The introduction is a paged SwiftUI view.
@@ -122,7 +133,7 @@ The keyboard must read the App Group container. That requires **"Allow Full Acce
 
 ### D8 — Localization
 
-- **Listing languages** are data in `ListingCore/Resources/Languages`: a prompt template, a title pattern, a size-label vocabulary and hashtag style. German and English ship first; French, Dutch and Italian can be added without code changes.
+- **Listing languages:** exactly **Deutsch and English**, chosen from a list with a checkmark in Settings (default) and per listing. Each language is data in `ListingCore/Resources/Languages`: a prompt template, a title pattern, a size-label vocabulary and hashtag style.
 - **App UI** is localized with String Catalogs (de, en).
 - **Language preferences:** the default listing language follows the user's setting, which is initially the device language. It is stored per listing.
 
@@ -163,7 +174,7 @@ New product; staged rollout:
 1. **Internal MVP (TestFlight, owner's household):** intake, grouping, cloud analysis, writing, editing, handoff with clipboard and keyboard, and onboarding. Billing is stubbed with unlimited internal use.
 2. **Closed beta (TestFlight, about 20 sellers):** billing live in sandbox, trial, and tuning of analytics on drop-off points in onboarding.
 3. **App Store launch (DE/AT/CH):** prices as in D5.
-4. **Later:** Mac target, more languages, on-device image analysis on iOS 27.
+4. **Later:** Mac target, on-device image analysis on iOS 27.
 
 ## Open Questions
 

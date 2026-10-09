@@ -5,7 +5,7 @@
 - [ ] 1.1 Create Xcode project with iOS 26 app target `ThriftShop`, keyboard extension `ThriftKeyboard`, shared App Group, and local Swift package `ListingCore`; verify `xcodebuild -scheme ThriftShop -destination 'platform=iOS Simulator,name=iPhone 16' build` succeeds
 - [ ] 1.2 Add GitHub Actions workflow: Linux job (`swift test` for `ListingCore`, Deno tests for backend) and macOS job (`macos-26`, `xcodebuild build test`, `CODE_SIGNING_ALLOWED=NO`); verify all jobs pass on a pushed commit
 - [ ] 1.3 Add SwiftData model (Batch, Garment, Photo, Attributes with source/confidence, Listing) in `ListingCore`; verify a unit test saves and reloads a batch with in-memory storage
-- [ ] 1.4 Set up String Catalogs (de, en) and listing-language resources (de, en); verify a unit test loads both language resources
+- [ ] 1.4 Set up String Catalogs (de, en) and listing-language resources (exactly de, en); verify a unit test loads both and that no other language is offered
 - [ ] 1.5 Write README (architecture, build, CI, backend setup); verify a clean checkout builds by following only the README
 
 ## 2. Backend and AI proxy (spec: ai-backend)
@@ -20,6 +20,7 @@
 ## 3. Photo intake and grouping (specs: photo-intake, garment-grouping)
 
 - [ ] 3.1 Implement PhotosPicker multi-select and in-app camera, 100-photo limit, duplicate detection; verify unit tests for limit/duplicates and manual test on device
+- [ ] 3.1b Implement "Fotos hinzufügen" menu (Mediathek, Kamera, Einfügen via `PasteButton`) and drag & drop onto batch/group; verify on device that pasting 3 photos copied in Photos adds 3 photos and the paste entry is disabled without images
 - [ ] 3.1a Implement share extension "Inserat erstellen" (multiple photos → App Group → new batch); verify on device that sharing 6 photos from Photos opens a batch with 6 photos
 - [ ] 3.2 Implement image preparation (orientation, ≤1280 px long edge, JPEG, metadata stripped); verify unit test that output has no GPS/EXIF and correct size
 - [ ] 3.3 Implement on-device OCR + label detection + size parser (EU, international, W/L, kids); verify unit tests on fixture strings and ≥10 real label photos
@@ -72,5 +73,5 @@
 
 ## Workflow follow-up
 
-- Later changes: Mac target, more listing languages, on-device image analysis (iOS 27).
+- Later changes: Mac target, on-device image analysis (iOS 27).
 - Archive with `openspec archive add-iphone-listing-app` after launch.

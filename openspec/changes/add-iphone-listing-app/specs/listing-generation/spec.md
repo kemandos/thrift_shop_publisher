@@ -14,7 +14,11 @@ The system SHALL generate a title, a description and 3–10 hashtags for each an
 - **THEN** title, description and hashtags are shown for that garment
 
 ### Requirement: Selectable listing language
-The system SHALL generate listing text in German or English, default to the user's preferred listing language, and let the user switch the language per listing.
+The system SHALL support exactly two listing languages, Deutsch and English, chosen from a list (with a checkmark on the current one) both as a default in Settings and per listing; the default SHALL follow the device language when it is German or English, otherwise Deutsch.
+
+#### Scenario: Language list
+- **WHEN** the user opens the language selection of a listing
+- **THEN** a list with "Deutsch" and "English" is shown, the current language has a checkmark, and no other languages are offered
 
 #### Scenario: Switch to English
 - **WHEN** the user switches a German listing to English
