@@ -1,0 +1,40 @@
+schema: spec-driven
+
+context: |
+  Personal, single-household tool: one primary user (a private Vinted seller in Germany), no multi-tenant or backend service.
+  All listing text the app generates for Vinted MUST be German; the app UI may be German or English.
+  macOS is the first-class target; iOS/iPadOS is a later phase distributed via TestFlight, so shared code must stay platform-neutral.
+  AI calls go directly from the device to a hosted vision model using the user's own API key; never assume a server we operate.
+  Keep running cost per listing in the order of cents or less; prefer the cheapest model that meets quality.
+  Photos are personal data: never upload them anywhere except the configured AI provider, and only when the user triggers analysis.
+
+# Project context (optional)
+# Add only constraints that should guide OpenSpec artifacts and workflows.
+# Include constraints an agent cannot infer by reading the code.
+# Keep general project documentation and discoverable codebase facts out.
+# Example:
+#   context: |
+#     Designs and tasks must cover Windows, macOS, and Linux
+#     Write all artifacts in Spanish
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always state what is out of scope
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing
