@@ -1,5 +1,6 @@
+import { browser } from "wxt/browser";
 import { defineContentScript } from "wxt/utils/define-content-script";
-import { formatEur, type Attributes, type FormMap } from "@thrift/shared";
+import { DEFAULT_FORM_MAP, formatEur, formatUsd, LOW_BALANCE_USD, type Attributes, type FormMap } from "@thrift/shared";
 import { aiViaBackground, bg, ClientError } from "@/src/client";
 import { pacer } from "@/src/dom/core";
 import { collectPhotos, hasPhotos, installFileCapture } from "@/src/dom/photos";
@@ -36,28 +37,46 @@ export default defineContentScript({
     let lastAttributes: Attributes | null = null;
     let busy = false;
 
+    let log: string[] = [];
     const ctx = (): FillContext => ({
       doc: document,
       map,
       ai: aiViaBackground,
       pace: pacer(),
       status: (m) => panel.setStatus(m),
+      log: (line) => log.push(line),
     });
+    const logHeader = () =>
+      [
+        `Thrift ${browser.runtime.getManifest().version} · Formular-Map ${map.version}${map.version === DEFAULT_FORM_MAP.version ? "" : " (Server)"}`,
+        `${location.pathname} · Fenster ${innerWidth}×${innerHeight} · ${navigator.userAgent.match(/(Chrome|Safari|Firefox)\/[\d.]+/)?.[0] ?? ""}`,
+        `Modelle: ${settings.model} / ${settings.navModel} · ${new Date().toISOString()}`,
+      ].join("\n");
 
     const refreshCost = async () => {
       const u = await bg.get("getUsage").catch(() => null);
       if (u?.last) panel.setCost(`Letztes Inserat ${formatEur(u.last.costEur)} · Monat ${formatEur(u.month.costEur)}`);
+      if (settings.mode === "openrouter" && settings.apiKey) {
+        const b = await bg.get("getBalance").catch(() => null);
+        if (b) {
+          const low = b.remainingUsd < LOW_BALANCE_USD;
+          panel.setBalance(`Guthaben ${formatUsd(b.remainingUsd)}${low ? " – bitte aufladen" : ""}`, low);
+        }
+      }
     };
 
     const run = async (fn: () => Promise<void>) => {
       if (busy) return;
       busy = true;
+      log = [logHeader()];
       panel.setBusy(true);
       try {
         await fn();
       } catch (e) {
+        log.push(`Fehler: ${e instanceof Error ? e.message : String(e)}`);
         panel.setStatus(friendlyError(e, settings.mode), true);
       } finally {
+        panel.setLog(log.join("\n"));
         busy = false;
         panel.setBusy(false);
         panel.setEnabled(hasPhotos(document, map));
@@ -77,6 +96,7 @@ export default defineContentScript({
           if (!photos.length) throw new ClientError("Keine Fotos gefunden – erst Fotos hinzufügen.");
           const report = await fillForm(ctx(), photos, styleFrom(settings, { language, tone }));
           lastAttributes = report.attributes;
+          log.push(`Ergebnis: gefüllt ${report.filled.join(", ") || "–"}; offen ${report.unresolved.map((u) => u.key).join(", ") || "–"}`);
           panel.showResult(report.unresolved, true);
         });
       },

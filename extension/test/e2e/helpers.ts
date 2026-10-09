@@ -60,6 +60,7 @@ export type FixtureState = {
   size: string;
   condition: string;
   colors: string[];
+  material: string;
   submitted: boolean;
   draft: boolean;
 };

@@ -23,6 +23,7 @@ export type Request =
   | { type: "getFormMap" }
   | { type: "getUsage" }
   | { type: "testConnection" }
+  | { type: "getBalance" }
   | { type: "heartbeat" };
 
 export interface AiResults {
@@ -39,7 +40,15 @@ export interface UsageSummary {
   month: { key: string; usage: Usage; costEur: number };
 }
 
+/** OpenRouter credit balance in USD (null in server mode or when it cannot be read). */
+export interface Balance {
+  remainingUsd: number;
+  /** "credits": account balance; "key-limit": remaining limit of this key. */
+  source: "credits" | "key-limit";
+}
+
 export interface ResponseMap {
+  getBalance: Balance | null;
   getSettings: Settings;
   getFormMap: FormMap;
   getUsage: UsageSummary;

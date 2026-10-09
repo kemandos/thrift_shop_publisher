@@ -29,6 +29,9 @@
 - [x] 4.7 Enforce "only a human publishes" in one guard (element snapshot, option lists, AI answers, every click, submit lock during fill, built-in words a remote map cannot remove); verify unit tests and a Playwright test with a misbehaving model
 - [x] 4.8 Make the panel responsive (iPhone portrait/landscape, iPad incl. split view, Mac small to wide windows; touch sizes; collapse/dock remembered; hidden while the keyboard is open); verify a Playwright matrix over 9 formats
 
+- [x] 4.9 Adapt pickers to vinted.de's real structure (div rows, search box, suggestions with paths, reused rows, "Wähle …" placeholders, "(empfohlen)" labels), scope options to the opened picker, add the fill log; verify a Vinted-like fixture variant
+- [x] 4.10 Show the OpenRouter balance in popup and panel with a low-balance warning; verify unit tests
+
 ## 5. Settings and Chrome release (spec: extension-settings)
 
 - [x] 5.1 Build popup (Artikel verkaufen, last cost, month total) and options page (AI mode, key with test, server URL/token, language and tone lists, closing texts); verify unit/UI tests and masked key display

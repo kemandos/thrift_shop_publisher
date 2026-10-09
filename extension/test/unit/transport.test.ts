@@ -78,6 +78,20 @@ describe("openrouter transport", () => {
     expect(calls[1]!.body.model).toBe("anthropic/claude-haiku-5.5");
   });
 
+  it("reads the OpenRouter balance (credits − usage), falls back to the key limit", async () => {
+    const credits = (async (url: string) =>
+      new Response(JSON.stringify(url.endsWith("/credits") ? { data: { total_credits: 10, total_usage: 2.5 } } : {}))) as unknown as typeof fetch;
+    expect(await openRouterTransport("sk-or-x", models, credits).balance()).toEqual({ remainingUsd: 7.5, source: "credits" });
+    const keyOnly = (async (url: string) =>
+      url.endsWith("/credits")
+        ? new Response("{}", { status: 403 })
+        : new Response(JSON.stringify({ data: { limit_remaining: 1.25 } }))) as unknown as typeof fetch;
+    expect(await openRouterTransport("sk-or-x", models, keyOnly).balance()).toEqual({ remainingUsd: 1.25, source: "key-limit" });
+    const none = (async () => new Response("{}", { status: 500 })) as unknown as typeof fetch;
+    expect(await openRouterTransport("sk-or-x", models, none).balance()).toBeNull();
+    expect(await serverTransport("https://srv.example", "tok").balance()).toBeNull();
+  });
+
   it("test() checks the key against OpenRouter", async () => {
     const bad = (async () => new Response("{}", { status: 401 })) as unknown as typeof fetch;
     await expect(openRouterTransport("sk-or-bad", models, bad).test()).rejects.toMatchObject({ kind: "unauthorized" });

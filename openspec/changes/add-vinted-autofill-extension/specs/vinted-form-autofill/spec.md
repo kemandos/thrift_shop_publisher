@@ -67,6 +67,20 @@ The extension SHALL NOT click Vinted's upload button, SHALL NOT call Vinted APIs
 - **WHEN** filling has finished
 - **THEN** the item is not uploaded until the user clicks Vinted's "Hochladen"
 
+### Requirement: Category like a person picks it
+The category SHALL be set in this order: keep a category Vinted already shows that matches; take a visible suggestion whose leaf and department match; type the leaf into the picker's search box and take the result whose shown path fits (ties decided by the AI); only then walk the tree. A suggestion for a different department (e.g. Herren instead of Damen) SHALL never be taken.
+
+#### Scenario: Wrong suggestion
+- **WHEN** Vinted suggests "Strickpullover — Herren > Kleidung > Pullover" for a women's sweater
+- **THEN** Thrift searches and selects "Strickpullover — Damen > Kleidung > Pullover & Sweatshirts"
+
+### Requirement: Fill log for troubleshooting
+After each fill the panel SHALL offer "Protokoll kopieren": which field elements were found, which options each picker showed (with a compact outline of the picker's structure), what was chosen and what the field shows afterwards. The log SHALL contain no photos, keys or tokens.
+
+#### Scenario: Field not filled
+- **WHEN** a field stays empty on the real site
+- **THEN** the copied log shows what Thrift saw in that picker
+
 ### Requirement: Only a human publishes
 Only the user's own (trusted) click SHALL publish, save or delete. The AI, including the navigation model (Jev Router), SHALL NOT be able to trigger it: publish-like controls SHALL never be offered to it, its answers SHALL be re-checked, every extension click SHALL pass the same check, and the form SHALL NOT submit while a fill runs.
 

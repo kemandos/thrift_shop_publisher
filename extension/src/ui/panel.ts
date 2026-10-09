@@ -45,6 +45,10 @@ export interface Panel {
   showNotice(show: boolean): void;
   showResult(unresolved: Unresolved[], canRewrite: boolean): void;
   setCost(text: string): void;
+  /** OpenRouter balance line; `low` shows it as a warning. Empty text hides it. */
+  setBalance(text: string, low?: boolean): void;
+  /** Fill log offered via "Protokoll kopieren" (empty hides the button). */
+  setLog(text: string): void;
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Record<string, string> = {}, text?: string) {
@@ -145,7 +149,23 @@ export function createPanel(doc: Document, h: PanelHandlers): Panel {
   );
   const ok = el("button", { class: "btn-primary", "data-testid": "thrift-notice-ok" }, "Verstanden");
   notice.append(ok);
-  const foot = el("div", { class: "mt-1.5 text-right text-[11px] text-muted" });
+  const foot = el("div", { class: "mt-1.5 flex items-center justify-between gap-2 text-[11px] text-muted pointer-coarse:text-xs" });
+  const logBtn = el(
+    "button",
+    { class: "hidden cursor-pointer border-0 bg-transparent p-0 text-[11px] text-spruce underline pointer-coarse:py-2 pointer-coarse:text-xs", "data-testid": "thrift-log" },
+    "Protokoll kopieren",
+  );
+  const footText = el("div", { class: "ml-auto text-right" });
+  const cost = el("div", {});
+  const balance = el("div", { "data-testid": "thrift-balance" });
+  footText.append(cost, balance);
+  foot.append(logBtn, footText);
+  let logText = "";
+  logBtn.addEventListener("click", async () => {
+    await navigator.clipboard?.writeText(logText).catch(() => {});
+    logBtn.textContent = "Kopiert ✓";
+    setTimeout(() => (logBtn.textContent = "Protokoll kopieren"), 2000);
+  });
 
   body.append(styleRow, actions, notice, status, list, foot);
   card.append(head, body);
@@ -243,7 +263,15 @@ export function createPanel(doc: Document, h: PanelHandlers): Panel {
       if (unresolved.length) expand();
     },
     setCost(text) {
-      foot.textContent = text;
+      cost.textContent = text;
+    },
+    setBalance(text, low = false) {
+      balance.textContent = text;
+      balance.classList.toggle("text-danger", low);
+    },
+    setLog(text) {
+      logText = text;
+      logBtn.classList.toggle("hidden", !text);
     },
   };
 }

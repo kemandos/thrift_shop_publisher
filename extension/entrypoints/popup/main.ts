@@ -1,5 +1,5 @@
 import { browser } from "wxt/browser";
-import { formatEur } from "@thrift/shared";
+import { formatEur, formatUsd, LOW_BALANCE_USD } from "@thrift/shared";
 import { bg } from "@/src/client";
 
 const SELL_URL = "https://www.vinted.de/items/new";
@@ -19,4 +19,10 @@ void (async () => {
   $("setup").classList.toggle("hidden", configured);
   $("last").textContent = u.last ? formatEur(u.last.costEur) : "–";
   $("month").textContent = formatEur(u.month.costEur);
+  if (s.mode === "openrouter" && s.apiKey) {
+    const b = await bg.get("getBalance").catch(() => null);
+    $("balanceBox").classList.remove("hidden");
+    $("balance").textContent = b ? formatUsd(b.remainingUsd) + (b.remainingUsd < LOW_BALANCE_USD ? " – fast leer" : "") : "nicht abrufbar";
+    $("balance").classList.toggle("text-danger", !!b && b.remainingUsd < LOW_BALANCE_USD);
+  }
 })();

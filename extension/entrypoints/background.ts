@@ -1,7 +1,7 @@
 import { browser } from "wxt/browser";
 import { defineBackground } from "wxt/utils/define-background";
 import { addUsage, DEFAULT_FORM_MAP, type Usage } from "@thrift/shared";
-import type { Request, Response } from "@/src/messages";
+import type { Balance, Request, Response } from "@/src/messages";
 import { loadLocalSettings, mergeSettings, type Settings } from "@/src/settings";
 import { transportFor, TransportError } from "@/src/transport";
 import { recordCall, summary } from "@/src/usageStore";
@@ -30,6 +30,8 @@ const kv = {
   set: (items: Record<string, unknown>) => browser.storage.local.set(items),
 };
 
+let balanceCache: { value: Balance | null; at: number } | null = null;
+
 /** Usage of the fill in progress per tab; flushed when an analyze starts a new fill. */
 const pending = new Map<number, Usage>();
 
@@ -46,6 +48,15 @@ async function handle(msg: Request, tabId: number | undefined): Promise<unknown>
       }
     case "getUsage":
       return summary(kv);
+    case "getBalance": {
+      // Cached for a minute; refreshed after each fill by the caller.
+      if (balanceCache && Date.now() - balanceCache.at < 60_000) return balanceCache.value;
+      const value = await transportFor(await getSettings())
+        .balance()
+        .catch(() => null);
+      balanceCache = { value, at: Date.now() };
+      return value;
+    }
     case "testConnection":
       await transportFor(await getSettings()).test();
       return { ok: true };
@@ -60,12 +71,17 @@ async function handle(msg: Request, tabId: number | undefined): Promise<unknown>
         msg.op === "analyze" ? res.usage : addUsage(pending.get(key) ?? { inputTokens: 0, outputTokens: 0 }, res.usage);
       pending.set(key, total);
       await recordCall(kv, res.usage, total);
+      balanceCache = null;
       return res;
     }
   }
 }
 
 export default defineBackground(() => {
+  // A new key or mode means a different balance.
+  browser.storage.onChanged.addListener(() => {
+    balanceCache = null;
+  });
   // Chrome does not accept a returned Promise from onMessage listeners: reply via sendResponse and return true.
   browser.runtime.onMessage.addListener((msg: unknown, sender, sendResponse: (r: Response<unknown>) => void) => {
     handle(msg as Request, sender.tab?.id).then(

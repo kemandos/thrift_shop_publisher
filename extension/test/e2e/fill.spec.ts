@@ -46,10 +46,11 @@ async function runFill(page: Page, pickMode: "label" | "none" | "upload" = "labe
           return { result: { id: hit?.id ?? null }, usage: { inputTokens: 1, outputTokens: 1 } };
         },
       };
-      const ctx = { doc: document, map: T.DEFAULT_FORM_MAP, ai, pace: T.pacer(0, 0) };
+      const log: string[] = [];
+      const ctx = { doc: document, map: T.DEFAULT_FORM_MAP, ai, pace: T.pacer(0, 0), log: (l: string) => log.push(l) };
       const photos = await T.collectPhotos(document, T.DEFAULT_FORM_MAP);
       const report = await T.fillForm(ctx, photos, { language: "de", tone: "freundlich", closingText: "" });
-      return { report, calls, photoSizes: photos.map((p: any) => p.data.length), state: (window as any).__state };
+      return { report, calls, log, photoSizes: photos.map((p: any) => p.data.length), state: (window as any).__state };
     },
     { attributes: STUB_ATTRIBUTES, text: STUB_TEXT, pickMode },
   );
@@ -84,6 +85,46 @@ for (const variant of ["desktop", "mobile"]) {
     for (const s of photoSizes) expect(s).toBeLessThan(200_000);
   });
 }
+
+test.describe("vinted.de structure (div rows, search, suggestions)", () => {
+  test("category via search: ignores a suggestion for the wrong department", async ({ page }) => {
+    await open(page, "vinted");
+    await addPhotos(page, 1);
+    const { state, report, log } = await runFill(page);
+    expect(state.category).toEqual(["Damen", "Kleidung", "Pullover & Sweatshirts", "Strickpullover"]);
+    expect(state.brand).toBe("COS");
+    expect(state.size).toBe("M");
+    expect(state.condition).toBe("Sehr gut");
+    expect(state.colors).toEqual(["Beige"]);
+    expect(state.title).toBe(STUB_TEXT.title);
+    expect(state.price).toBe("19");
+    expect(state.submitted).toBe(false);
+    expect(report.unresolved).toEqual([]);
+    const text = log.join("\n");
+    expect(text).toContain("category: Suche „Strickpullover“");
+    expect(text).toContain("Aufbau der Auswahl"); // DOM outline for remote debugging
+    expect(text).toContain('placeholder="Wähle eine Größe"');
+  });
+
+  test("category via the tree when there is no search box (rows reused between levels)", async ({ page }) => {
+    await routeVinted(page);
+    await page.goto("https://www.vinted.de/items/new?variant=vinted&nosearch=1");
+    await page.addScriptTag({ content: harness });
+    await addPhotos(page, 1);
+    const { state } = await runFill(page);
+    expect(state.category).toEqual(["Damen", "Kleidung", "Pullover & Sweatshirts", "Strickpullover"]);
+  });
+
+  test("keeps a category Vinted already pre-selected from the title", async ({ page }) => {
+    await routeVinted(page);
+    await page.goto("https://www.vinted.de/items/new?variant=vinted&preset=Strickpullover");
+    await page.addScriptTag({ content: harness });
+    await addPhotos(page, 1);
+    const { state, log } = await runFill(page);
+    expect(state.category).toEqual(["(preset)", "Strickpullover"]);
+    expect(log.join("\n")).toContain("category: bereits gesetzt");
+  });
+});
 
 test("finds renamed fields via AI element picking (Jev-style fallback)", async ({ page }) => {
   await open(page, "broken");

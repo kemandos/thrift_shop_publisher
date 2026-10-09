@@ -13,7 +13,18 @@ import {
 } from "@thrift/shared";
 import { displayedValue, locateField } from "../dom/locate";
 import { isVisible, norm, safeClick, setNativeValue, type Pacer } from "../dom/core";
-import { closePicker, matchOption, nextLevel, openPicker, searchInPicker, type Option } from "../dom/pickers";
+import {
+  clearPickerSearch,
+  closePicker,
+  matchOption,
+  nextLevel,
+  openPicker,
+  pathSegments,
+  pickByPath,
+  searchInPicker,
+  type Option,
+  type PickerSession,
+} from "../dom/pickers";
 import { elementById, snapshotElements } from "../dom/snapshot";
 import { isForbidden, lockSubmission } from "../dom/guard";
 
@@ -51,6 +62,8 @@ export interface FillContext {
   ai: AiApi;
   pace: Pacer;
   status?: (msg: string) => void;
+  /** Fill log for "Protokoll kopieren" (what was seen and chosen; no photos, no keys). */
+  log?: (line: string) => void;
 }
 
 const FIELD_LABEL: Record<FieldKey, string> = {
@@ -70,6 +83,20 @@ export function descriptionWithHashtags(text: ListingText): string {
   return tags ? `${text.description}\n\n${tags}` : text.description;
 }
 
+/** Short element description for the log: tag, test id, placeholder, role. */
+function describe(el: Element): string {
+  const a = (n: string) => el.getAttribute(n);
+  return [
+    el.tagName.toLowerCase(),
+    a("data-testid") && `testid=${a("data-testid")}`,
+    a("placeholder") && `placeholder="${a("placeholder")}"`,
+    a("role") && `role=${a("role")}`,
+    a("readonly") !== null && "readonly",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
 export function suggestedPrice(a: Attributes): number {
   return Math.round((a.priceMinEur + a.priceMaxEur) / 2);
 }
@@ -79,7 +106,10 @@ async function resolve(ctx: FillContext, key: FieldKey): Promise<Element | null>
   const spec = ctx.map.fields[key];
   if (!spec) return null;
   const el = locateField(spec, ctx.doc);
-  if (el) return el;
+  if (el) {
+    ctx.log?.(`${key}: Feld ${describe(el)}`);
+    return el;
+  }
   const elements = snapshotElements(ctx.doc, ctx.map.forbiddenClickText);
   if (!elements.length) return null;
   try {
@@ -112,6 +142,12 @@ async function fillText(ctx: FillContext, key: FieldKey, value: string): Promise
 
 type ChooseField = "size" | "condition" | "color" | "brand" | "material";
 
+const optionList = (opts: Option[]) =>
+  opts
+    .slice(0, 25)
+    .map((o) => (o.detail ? `${o.label} (${o.detail})` : o.label))
+    .join(" | ");
+
 /** Deterministic pick first (exact facts), AI choice second. */
 async function chooseOption(
   ctx: FillContext,
@@ -131,56 +167,154 @@ async function chooseOption(
   }
 }
 
-async function fillList(ctx: FillContext, key: ChooseField, attrs: Attributes, want: string | null): Promise<string | null> {
-  const trigger = await resolve(ctx, key);
-  if (!trigger) return null;
-  const forbidden = ctx.map.forbiddenClickText;
-  let options = await openPicker(trigger, ctx.doc, forbidden, ctx.pace);
-  if (!options.length) return null;
-  if (key === "brand" && want) options = await searchInPicker(ctx.doc, want, options, forbidden, ctx.pace);
-  const pick = await chooseOption(ctx, key, attrs, options, want);
-  if (!pick) {
-    await closePicker(trigger, ctx.doc);
-    return null;
+async function withPicker<T>(ctx: FillContext, key: FieldKey, trigger: Element, run: (s: PickerSession) => Promise<T>): Promise<T> {
+  const session = await openPicker(trigger, ctx.doc, ctx.map.forbiddenClickText, ctx.pace);
+  ctx.log?.(`${key}: Auswahl geöffnet, ${session.options.length} Optionen: ${optionList(session.options)}`);
+  if (!session.options.length || key === "category") ctx.log?.(`${key}: Aufbau der Auswahl:\n${session.outline(80)}`);
+  try {
+    return await run(session);
+  } finally {
+    session.dispose();
   }
-  safeClick(pick.el, forbidden);
-  await ctx.pace.step();
-  // Multi-select pickers (e.g. colour) stay open after a click – close them.
-  if (pick.el.isConnected && isVisible(pick.el)) await closePicker(trigger, ctx.doc);
-  return pick.label;
 }
 
-async function fillCategory(ctx: FillContext, attrs: Attributes): Promise<string[] | null> {
-  const trigger = await resolve(ctx, "category");
-  if (!trigger) return null;
+async function fillList(ctx: FillContext, key: ChooseField, attrs: Attributes, want: string | null): Promise<string | null> {
+  const trigger = await resolve(ctx, key);
+  if (!trigger) {
+    ctx.log?.(`${key}: Feld nicht gefunden`);
+    return null;
+  }
+  if (want && hasValue(trigger, want)) return want; // already set (e.g. by Vinted)
   const forbidden = ctx.map.forbiddenClickText;
-  let options = await openPicker(trigger, ctx.doc, forbidden, ctx.pace);
-  const path: string[] = [];
-  for (let level = 0; options.length && level < 7; level++) {
-    let pick = matchOption(options, attrs.categoryPath[level]);
-    if (!pick) {
-      try {
-        const { result } = await ctx.ai.choose({
-          field: "category",
-          attributes: attrs,
-          pathSoFar: path,
-          options: options.map((o) => o.label),
-        });
-        pick = result.choice ? (options.find((o) => o.label === result.choice) ?? null) : null;
-      } catch {
-        pick = null;
+  return withPicker(ctx, key, trigger, async (session) => {
+    let options = session.options;
+    if (!options.length) return null;
+    if (key === "brand" && want) {
+      const found = await searchInPicker(ctx.doc, session, want, ctx.pace);
+      if (found) {
+        options = found;
+        ctx.log?.(`${key}: Suche „${want}“: ${optionList(options)}`);
       }
     }
-    if (!pick) break;
+    const pick = await chooseOption(ctx, key, attrs, options, want);
+    if (!pick) {
+      ctx.log?.(`${key}: keine passende Option für „${want ?? ""}“`);
+      await closePicker(trigger, ctx.doc);
+      return null;
+    }
     safeClick(pick.el, forbidden);
-    path.push(pick.label);
     await ctx.pace.step();
-    const next = await nextLevel(pick, options, ctx.doc, forbidden);
-    if (next === null) return path; // leaf selected, picker closed
-    options = next;
+    ctx.log?.(`${key}: gewählt „${pick.label}“, Feld zeigt jetzt „${displayedValue(trigger)}“`);
+    // Multi-select pickers (e.g. colour) stay open after a click – close them.
+    if (pick.el.isConnected && isVisible(pick.el)) await closePicker(trigger, ctx.doc);
+    return pick.label;
+  });
+}
+
+/** Clicks a leaf option and confirms the trigger shows it (or the picker closed). */
+async function selectLeaf(ctx: FillContext, session: PickerSession, pick: Option): Promise<string[] | null> {
+  safeClick(pick.el, ctx.map.forbiddenClickText);
+  await ctx.pace.step();
+  const ok = await waitForValue(session.trigger, pick.label);
+  ctx.log?.(`category: gewählt „${pick.label}“ (${pick.detail}), Feld zeigt „${displayedValue(session.trigger)}“`);
+  if (pick.el.isConnected && isVisible(pick.el)) await closePicker(session.trigger, ctx.doc);
+  return ok ? [...pathSegments(pick.detail), pick.label] : null;
+}
+
+async function waitForValue(trigger: Element, value: string, timeoutMs = 1500): Promise<boolean> {
+  const end = Date.now() + timeoutMs;
+  while (Date.now() < end) {
+    if (hasValue(trigger, value)) return true;
+    await new Promise((r) => setTimeout(r, 50));
   }
-  if (path.length) await closePicker(trigger, ctx.doc);
-  return path.length ? path : null;
+  return hasValue(trigger, value);
+}
+
+/** Leaf among several equal candidates: let the AI pick using the full paths. */
+async function aiPickPath(ctx: FillContext, attrs: Attributes, tied: Option[]): Promise<Option | null> {
+  const labels = tied.map((o) => `${o.label} — ${o.detail}`);
+  try {
+    const { result } = await ctx.ai.choose({ field: "category", attributes: attrs, options: labels });
+    const i = result.choice ? labels.indexOf(result.choice) : -1;
+    return i >= 0 ? tied[i]! : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Category, like a person would do it:
+ * 0. already shown (Vinted pre-selects from the title) → done,
+ * 1. a visible suggestion with the right leaf and department → take it,
+ * 2. the picker's search box: type the leaf (then the item type) and take the result whose path fits,
+ * 3. otherwise walk the tree level by level.
+ */
+async function fillCategory(ctx: FillContext, attrs: Attributes): Promise<string[] | null> {
+  const trigger = await resolve(ctx, "category");
+  const want = attrs.categoryPath.filter(Boolean);
+  ctx.log?.(`category: gesucht ${want.join(" › ") || "–"}`);
+  if (!trigger) {
+    ctx.log?.("category: Feld nicht gefunden");
+    return null;
+  }
+  const leaf = want.at(-1);
+  if (leaf && hasValue(trigger, leaf)) {
+    ctx.log?.(`category: bereits gesetzt („${displayedValue(trigger)}“)`);
+    return want;
+  }
+  return withPicker(ctx, "category", trigger, async (session) => {
+    // 1. Suggestion / visible leaf.
+    const visible = pickByPath(session.options, want);
+    if (visible.pick) return selectLeaf(ctx, session, visible.pick);
+
+    // 2. Search.
+    for (const query of [leaf, attrs.itemType].filter((q): q is string => !!q)) {
+      const results = await searchInPicker(ctx.doc, session, query, ctx.pace);
+      if (!results) break; // no search box
+      ctx.log?.(`category: Suche „${query}“: ${optionList(results)}`);
+      const path = query === leaf ? want : [...want.slice(0, -1), query];
+      const { pick, tied } = pickByPath(results, path);
+      const chosen = pick ?? (tied.length ? await aiPickPath(ctx, attrs, tied) : null);
+      if (chosen) return selectLeaf(ctx, session, chosen);
+    }
+    await clearPickerSearch(ctx.doc, session, ctx.pace);
+
+    // 3. Tree.
+    let options = session.scan().length ? session.scan() : session.options;
+    const forbidden = ctx.map.forbiddenClickText;
+    const path: string[] = [];
+    for (let level = 0; options.length && level < 7; level++) {
+      let pick = matchOption(options, want[level]);
+      if (!pick) {
+        try {
+          const { result } = await ctx.ai.choose({
+            field: "category",
+            attributes: attrs,
+            pathSoFar: path,
+            options: options.map((o) => o.label),
+          });
+          pick = result.choice ? (options.find((o) => o.label === result.choice) ?? null) : null;
+        } catch {
+          pick = null;
+        }
+      }
+      if (!pick) {
+        ctx.log?.(`category: Ebene ${level + 1} ohne Treffer: ${optionList(options)}`);
+        break;
+      }
+      safeClick(pick.el, forbidden);
+      path.push(pick.label);
+      await ctx.pace.step();
+      const next = await nextLevel(session, options);
+      if (next === null) {
+        ctx.log?.(`category: Baum gewählt ${path.join(" › ")}, Feld zeigt „${displayedValue(trigger)}“`);
+        return path; // leaf selected, picker closed
+      }
+      options = next;
+    }
+    if (path.length) await closePicker(trigger, ctx.doc);
+    return null;
+  });
 }
 
 /** Reads the top-level category options (opens and closes the picker). */
@@ -189,10 +323,12 @@ export async function readCategoryOptions(ctx: FillContext): Promise<string[]> {
   if (!spec) return [];
   const trigger = locateField(spec, ctx.doc);
   if (!trigger) return [];
-  const opts = await openPicker(trigger, ctx.doc, ctx.map.forbiddenClickText, ctx.pace, 1500);
+  const session = await openPicker(trigger, ctx.doc, ctx.map.forbiddenClickText, ctx.pace, 1500);
+  session.dispose();
   await closePicker(trigger, ctx.doc);
   await ctx.pace.step();
-  return opts.map((o) => o.label).slice(0, 60);
+  // Only the department rows (no path line); suggestions carry a path.
+  return session.options.filter((o) => !o.detail).map((o) => o.label).slice(0, 60);
 }
 
 /** The whole fill: AI analysis from the photos, then every field. Never submits. */
@@ -225,7 +361,11 @@ async function fillFormUnlocked(ctx: FillContext, photos: Photo[], style: Listin
   done("description", await fillText(ctx, "description", desc), desc);
 
   say("Wähle Kategorie …");
-  const cat = await fillCategory(ctx, a).catch(() => null);
+  const failed = (key: string) => (e: unknown) => {
+    ctx.log?.(`${key}: Fehler ${e instanceof Error ? e.message : String(e)}`);
+    return null;
+  };
+  const cat = await fillCategory(ctx, a).catch(failed("category"));
   done("category", !!cat, a.categoryPath.join(" › "));
 
   say("Wähle Marke, Größe, Zustand, Farbe …");
@@ -242,7 +382,7 @@ async function fillFormUnlocked(ctx: FillContext, photos: Photo[], style: Listin
       unresolved.push({ key, label: FIELD_LABEL[key], value: key === "size" ? "Größe nicht erkannt – bitte auswählen" : "" });
       continue;
     }
-    const chosen = await fillList(ctx, key, a, want).catch(() => null);
+    const chosen = await fillList(ctx, key, a, want).catch(failed(key));
     done(key, !!chosen, want ?? "");
   }
 
@@ -260,6 +400,16 @@ export async function rewriteText(ctx: FillContext, attributes: Attributes, styl
   await fillText(ctx, "title", result.title);
   await fillText(ctx, "description", descriptionWithHashtags(result));
   return result;
+}
+
+/**
+ * True if the trigger shows exactly this value as one of its items ("Strickjacken", "Beige, Blau",
+ * "Damen › … › Strickpullover"). Exact per item, so a placeholder like "Wähle eine Größe" never counts as "L".
+ */
+export function hasValue(el: Element | null, value: string): boolean {
+  if (!el) return false;
+  const want = norm(value);
+  return !!want && norm(displayedValue(el)).split(/\s*[,›>]\s*/).includes(want);
 }
 
 /** True if a picker trigger now shows the chosen value (used by tests and UI). */

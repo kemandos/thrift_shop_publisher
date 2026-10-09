@@ -17,6 +17,9 @@
   .menu { border: 1px solid #aaa; background: #fff; padding: 4px; margin-top: 4px; }
   .menu li, .menu label { display: block; padding: 6px; cursor: pointer; list-style: none; }
   .modal { position: fixed; inset: 0; background: #fff; padding: 16px; overflow: auto; z-index: 10; }
+  .cell { cursor: pointer; padding: 8px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
+  .cell .sub { color: #666; font-size: 12px; }
+  .section { color: #666; font-size: 13px; padding: 8px 8px 4px; }
   .photos img { width: 80px; height: 100px; object-fit: cover; margin: 4px; }
 </style>
 </head>
@@ -49,7 +52,7 @@
 (() => {
   const variant = new URLSearchParams(location.search).get("variant") || "desktop";
   const mobile = variant === "mobile";
-  const state = (window.__state = { title: "", description: "", price: "", category: [], brand: "", size: "", condition: "", colors: [], submitted: false, draft: false });
+  const state = (window.__state = { title: "", description: "", price: "", category: [], brand: "", size: "", condition: "", colors: [], material: "", submitted: false, draft: false });
 
   // "Controlled" inputs: state only changes through input events, like a React form.
   for (const id of ["title", "description", "price"]) {
@@ -97,6 +100,126 @@
     panel.append(ul);
   }
 
+  // ---- variant=vinted: structure as seen on vinted.de (2026-10-09 screenshots) ----
+  // Read-only inputs with "Wähle …" placeholders, rows are plain clickable <div>s (no roles),
+  // category picker with search box, a "Vorgeschlagen" suggestion and a tree whose rows are reused.
+  if (variant === "vinted") {
+    const params = new URLSearchParams(location.search);
+    const noSearch = params.get("nosearch") === "1";
+    const details = document.getElementById("details");
+    const mk = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+    const row = (label, placeholder) => {
+      const f = mk("div", "field");
+      f.append(mk("span", "", label));
+      const input = mk("input");
+      input.readOnly = true; input.placeholder = placeholder;
+      f.append(input); details.append(f);
+      return input;
+    };
+    const cell = (title, sub, onPick) => {
+      const c = mk("div", "cell");
+      const left = mk("div");
+      const t = mk("div", "title", title);
+      left.append(t);
+      const s2 = mk("div", "sub", sub || ""); if (sub) left.append(s2);
+      c.append(left, mk("span", "chev", "›"));
+      c.addEventListener("click", () => c._pick());
+      c._pick = onPick;
+      c._set = (title2, sub2, pick2) => { t.textContent = title2; s2.textContent = sub2 || ""; if (sub2 && !s2.isConnected) left.append(s2); if (!sub2) s2.remove(); c._pick = pick2; };
+      return c;
+    };
+    const leaves = [];
+    const walk = (node, path) => {
+      for (const k of Array.isArray(node) ? node : Object.keys(node)) {
+        if (Array.isArray(node)) leaves.push({ name: k, path });
+        else walk(node[k], [...path, k]);
+      }
+    };
+    walk(TREE, []);
+    const VTREE = { ...TREE };
+
+    const inputs = {
+      category: row("Kategorie", "Wähle eine Kategorie"),
+      brand: row("Marke", "Wähle eine Marke"),
+      size: row("Größe", "Wähle eine Größe"),
+      condition: row("Zustand", "Wähle einen Zustand"),
+      color: row("Farbe", "Wähle bis zu 2 Farben"),
+      material: row("Material (empfohlen)", "Wähle ein Material"),
+    };
+    if (params.get("preset")) { inputs.category.value = params.get("preset"); state.category = ["(preset)", params.get("preset")]; }
+
+    const choose = (key, value, display) => { state[key] = value; inputs[key].value = display; closeOpen(); };
+
+    inputs.category.addEventListener("click", () => {
+      const panel = makePanel(inputs.category);
+      let search = null;
+      if (!noSearch) { search = mk("input"); search.placeholder = "Finde eine Kategorie"; panel.append(search); }
+      const body = mk("div"); panel.append(body);
+      const pickLeaf = (leaf) => choose("category", [...leaf.path, leaf.name], leaf.name);
+      // Suggestion for the wrong department on purpose: Thrift must not take it.
+      const renderHome = () => {
+        body.replaceChildren();
+        body.append(mk("div", "section", "Vorgeschlagen"));
+        body.append(cell("Strickpullover", "Herren > Kleidung > Pullover", () => pickLeaf({ name: "Strickpullover", path: ["Herren", "Kleidung", "Pullover"] })));
+        body.append(mk("div", "section", "Katalog-Kategorien"));
+        const list = mk("div"); body.append(list);
+        let node = VTREE; const path = [];
+        const cells = [];
+        const renderLevel = () => {
+          const items = Array.isArray(node) ? node : Object.keys(node);
+          items.forEach((it, i) => {
+            const pick = () => {
+              if (Array.isArray(node)) { pickLeaf({ name: it, path: path.slice() }); return; }
+              path.push(it); node = node[it]; renderLevel();
+            };
+            if (cells[i]) cells[i]._set(it, "", pick); // reuse row elements like React does
+            else { cells[i] = cell(it, "", pick); list.append(cells[i]); }
+          });
+          cells.slice(items.length).forEach((c) => c.remove());
+          cells.length = items.length;
+        };
+        renderLevel();
+      };
+      renderHome();
+      search?.addEventListener("input", () => {
+        const q = search.value.trim().toLowerCase();
+        if (!q) { renderHome(); return; }
+        body.replaceChildren();
+        for (const leaf of leaves.filter((l) => l.name.toLowerCase().includes(q))) {
+          body.append(cell(leaf.name, leaf.path.join(" > "), () => pickLeaf(leaf)));
+        }
+      });
+    });
+
+    inputs.brand.addEventListener("click", () => {
+      const panel = makePanel(inputs.brand);
+      const search = mk("input"); search.placeholder = "Finde eine Marke"; panel.append(search);
+      const holder = mk("div"); panel.append(holder);
+      const render = (q) => { holder.replaceChildren(); for (const b of BRANDS.filter((b) => b.toLowerCase().includes(q.toLowerCase()))) holder.append(cell(b, "", () => choose("brand", b, b))); };
+      search.addEventListener("input", () => render(search.value));
+      render("");
+    });
+    inputs.size.addEventListener("click", () => {
+      const panel = makePanel(inputs.size);
+      for (const sz of SIZES) panel.append(cell(sz, "", () => choose("size", sz, sz)));
+    });
+    inputs.condition.addEventListener("click", () => {
+      const panel = makePanel(inputs.condition);
+      const hints = { "Sehr gut": "Wenig benutzt, kaum Gebrauchsspuren", Gut: "Benutzt, leichte Gebrauchsspuren" };
+      for (const c of CONDITIONS) panel.append(cell(c, hints[c] || "", () => choose("condition", c, c)));
+    });
+    inputs.color.addEventListener("click", () => {
+      const panel = makePanel(inputs.color);
+      for (const c of COLORS) panel.append(cell(c, "", () => {
+        state.colors = state.colors.includes(c) ? state.colors.filter((x) => x !== c) : [...state.colors, c].slice(0, 2);
+        inputs.color.value = state.colors.join(", ");
+      }));
+    });
+    inputs.material.addEventListener("click", () => {
+      const panel = makePanel(inputs.material);
+      for (const m of ["Baumwolle", "Wolle", "Polyester"]) panel.append(cell(m, "", () => choose("material", m, m)));
+    });
+  } else {
   const fields = [
     ["category", variant === "broken" ? "Rubrik" : "Kategorie", "catalog-select-dropdown-input"],
     ["brand", "Marke", "brand-select-dropdown-input"],
@@ -172,6 +295,8 @@
       panel.append(lab);
     }
   });
+
+  } // end non-vinted variants
 
   // Photos: test hook + real file input.
   const thumbs = document.getElementById("thumbs");

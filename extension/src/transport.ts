@@ -12,7 +12,7 @@ import {
   Usage,
   type AiResponse,
 } from "@thrift/shared";
-import type { AiResults, Request } from "./messages";
+import type { AiResults, Balance, Request } from "./messages";
 import type { Settings } from "./settings";
 
 export type AiOp = keyof AiResults;
@@ -31,9 +31,12 @@ export interface Transport {
   call<K extends AiOp>(op: K, payload: Extract<AiRequest, { op: K }>["payload"]): Promise<AiResponse<AiResults[K]>>;
   formMap(): Promise<FormMap>;
   test(): Promise<void>;
+  /** Remaining OpenRouter credit, if this transport knows it. */
+  balance(): Promise<Balance | null>;
 }
 
 export const OPENROUTER_KEY_URL = "https://openrouter.ai/api/v1/key";
+export const OPENROUTER_CREDITS_URL = "https://openrouter.ai/api/v1/credits";
 
 /** Default mode: the user's own OpenRouter key, called from the background worker. */
 export function openRouterTransport(
@@ -69,6 +72,21 @@ export function openRouterTransport(
       }
       if (res.status === 401) throw new TransportError("OpenRouter-Key ungültig", "unauthorized");
       if (!res.ok) throw new TransportError(`OpenRouter-Fehler ${res.status}`, "server");
+    },
+    async balance() {
+      const get = async (url: string) => {
+        const res = await fetchFn(url, { headers: { Authorization: `Bearer ${key}` } }).catch(() => null);
+        return res?.ok ? ((await res.json().catch(() => null)) as { data?: Record<string, unknown> } | null) : null;
+      };
+      // Account balance = purchased credits − usage.
+      const credits = (await get(OPENROUTER_CREDITS_URL))?.data;
+      if (typeof credits?.total_credits === "number" && typeof credits?.total_usage === "number") {
+        return { remainingUsd: Math.max(0, credits.total_credits - credits.total_usage), source: "credits" };
+      }
+      // Fallback: remaining limit of this key, if the key has a limit.
+      const keyInfo = (await get(OPENROUTER_KEY_URL))?.data;
+      if (typeof keyInfo?.limit_remaining === "number") return { remainingUsd: keyInfo.limit_remaining, source: "key-limit" };
+      return null;
     },
   };
 }
@@ -130,6 +148,9 @@ export function serverTransport(baseUrl: string, token: string, fetchFn: typeof 
     },
     async test() {
       await req(API_PATHS.config);
+    },
+    async balance() {
+      return null; // the server holds the key
     },
   };
 }

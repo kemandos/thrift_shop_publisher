@@ -1,7 +1,8 @@
 import { DEFAULT_FORM_MAP } from "@thrift/shared";
 import { assertClickable, ForbiddenClickError, setNativeValue } from "@/src/dom/core";
 import { locateBy, locateField } from "@/src/dom/locate";
-import { matchOption } from "@/src/dom/pickers";
+import { matchOption, pathSegments, pickByPath } from "@/src/dom/pickers";
+import { hasValue } from "@/src/fill/fill";
 import { snapshotElements } from "@/src/dom/snapshot";
 import { forbiddenWords, isForbidden, lockSubmission } from "@/src/dom/guard";
 import { descriptionWithHashtags, suggestedPrice } from "@/src/fill/fill";
@@ -139,5 +140,38 @@ describe("options and helpers", () => {
     document.body.innerHTML = `<button>Hochladen</button><div data-thrift-ui><button>Ausfüllen</button></div><div role="combobox">Rubrik</div>`;
     const els = snapshotElements(document, forbidden);
     expect(els.map((e) => e.text)).toEqual(["Rubrik"]);
+  });
+});
+
+describe("category paths (vinted.de suggestions and search results)", () => {
+  const el = document.createElement("div");
+  const o = (label: string, detail = "") => ({ el, label, detail });
+  const want = ["Herren", "Kleidung", "Pullover & Sweater", "Strickjacken"];
+
+  it("splits shown paths", () => {
+    expect(pathSegments("Herren > Kleidung > Pullover & Sweater")).toEqual(["Herren", "Kleidung", "Pullover & Sweater"]);
+    expect(pathSegments("Damen › Schuhe")).toEqual(["Damen", "Schuhe"]);
+  });
+
+  it("takes the leaf whose path fits best and never the wrong department", () => {
+    const opts = [o("Strickjacken", "Damen > Kleidung > Pullover & Sweater"), o("Strickjacken", "Herren > Kleidung > Pullover & Sweater"), o("Damen")];
+    expect(pickByPath(opts, want).pick?.detail).toBe("Herren > Kleidung > Pullover & Sweater");
+    expect(pickByPath([opts[0]!], want).pick).toBeNull();
+  });
+
+  it("reports ties for the AI to decide", () => {
+    const opts = [o("Strickjacken", "Herren > Kleidung > A"), o("Strickjacken", "Herren > Kleidung > B")];
+    const r = pickByPath(opts, want);
+    expect(r.pick).toBeNull();
+    expect(r.tied).toHaveLength(2);
+  });
+
+  it("hasValue is exact per item, so placeholders never count", () => {
+    document.body.innerHTML = `<input id="s" placeholder="Wähle eine Größe"><input id="c" value="Beige, Blau"><div id="t">Strickjacken</div>`;
+    expect(hasValue(document.getElementById("s"), "L")).toBe(false);
+    (document.getElementById("s") as HTMLInputElement).value = "";
+    expect(hasValue(document.getElementById("c"), "Blau")).toBe(true);
+    expect(hasValue(document.getElementById("c"), "Bl")).toBe(false);
+    expect(hasValue(document.getElementById("t"), "strickjacken")).toBe(true);
   });
 });

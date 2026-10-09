@@ -52,7 +52,11 @@ export function safeClick(el: Element, forbidden: readonly string[]): void {
 }
 
 /** Sets a value so React/Vue-controlled inputs register it. */
-export function setNativeValue(el: HTMLInputElement | HTMLTextAreaElement, value: string): void {
+export function setNativeValue(
+  el: HTMLInputElement | HTMLTextAreaElement,
+  value: string,
+  opts: { blur?: boolean } = {},
+): void {
   const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
   const setter = Object.getOwnPropertyDescriptor(proto, "value")?.set;
   el.focus();
@@ -60,7 +64,8 @@ export function setNativeValue(el: HTMLInputElement | HTMLTextAreaElement, value
   else el.value = value;
   el.dispatchEvent(new Event("input", { bubbles: true }));
   el.dispatchEvent(new Event("change", { bubbles: true }));
-  el.blur();
+  // Search boxes inside pickers must keep focus, or the picker closes.
+  if (opts.blur !== false) el.blur();
 }
 
 export function pressEscape(target: Element | Document): void {

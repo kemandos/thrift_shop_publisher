@@ -119,6 +119,9 @@ test("first fill shows the notice; after 'Verstanden' it fills everything via th
   expect(state.category).toEqual(["Damen", "Kleidung", "Pullover & Sweatshirts", "Strickpullover"]);
   expect(hits).toContain("photos:2");
   await expect(page.getByTestId("thrift-rewrite")).toBeVisible();
+  // The fill log can be copied for troubleshooting.
+  await expect(page.getByTestId("thrift-log")).toBeVisible();
+  if (process.env.THRIFT_SHOTS) await page.screenshot({ path: `${process.env.THRIFT_SHOTS}/panel-after-fill.png` });
   await ctx.close();
 });
 

@@ -6,15 +6,19 @@ const INTERACTIVE =
 
 const LABELISH = "label, legend, h1, h2, h3, h4, h5, h6, span, div, p, dt";
 
-/** Elements whose own short text equals the label (case/diacritics-insensitive). */
+/**
+ * Elements whose own short text equals the label (case/diacritics-insensitive), also with a
+ * bracketed suffix: "Material (empfohlen)" matches "Material".
+ */
 function labelElements(root: ParentNode, label: string): Element[] {
   const want = norm(label);
   const out: Element[] = [];
   for (const el of Array.from(root.querySelectorAll(LABELISH))) {
     const t = norm(el.textContent);
-    if (t !== want) continue;
+    const hit = (x: string) => x === want || x.startsWith(`${want} (`);
+    if (!hit(t)) continue;
     // Prefer the innermost element carrying the text.
-    if (Array.from(el.children).some((c) => norm(c.textContent) === want)) continue;
+    if (Array.from(el.children).some((c) => hit(norm(c.textContent)))) continue;
     if (isVisible(el)) out.push(el);
   }
   return out;

@@ -55,3 +55,14 @@ The extension SHALL show the approximate AI cost of the last fill and the runnin
 #### Scenario: After a fill
 - **WHEN** a fill completes
 - **THEN** the popup shows e.g. "ca. 0,2 ct · Oktober: 0,18 €"
+
+### Requirement: OpenRouter balance
+In OpenRouter mode the popup and the fill panel SHALL show the remaining OpenRouter credit (purchased credits minus usage, or the key's remaining limit), refreshed after each fill, and warn when it falls below 0,50 $.
+
+#### Scenario: Low balance
+- **WHEN** the remaining credit is below 0,50 $
+- **THEN** the balance is shown as a warning with a link to top up
+
+#### Scenario: Balance not readable
+- **WHEN** OpenRouter does not return a balance (server mode, network error)
+- **THEN** filling still works and no balance is shown in the panel
