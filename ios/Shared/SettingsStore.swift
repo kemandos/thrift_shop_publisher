@@ -1,11 +1,11 @@
 import Foundation
 
 enum AIMode: String, CaseIterable, Identifiable, Sendable {
-    case direct, server
+    case openrouter, server
     var id: String { rawValue }
     var label: String {
         switch self {
-        case .direct: "Eigener API-Key"
+        case .openrouter: "OpenRouter (eigener Key)"
         case .server: "Eigener Server"
         }
     }

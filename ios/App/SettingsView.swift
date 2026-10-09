@@ -6,7 +6,7 @@ struct SettingsView: View {
     private let store = SettingsStore()
 
     @State private var loaded = false
-    @State private var mode: AIMode = .direct
+    @State private var mode: AIMode = .openrouter
     @State private var apiKeyInput = ""
     @State private var apiKeyHint: String?
     @State private var serverUrl = ""
@@ -31,14 +31,14 @@ struct SettingsView: View {
                 } header: {
                     Text("KI-Zugang")
                 } footer: {
-                    Text(mode == .direct
-                         ? "Anfragen gehen direkt an Anthropic. Der Schlüssel bleibt nur auf diesem iPhone."
-                         : "Alle KI-Anfragen gehen an deinen Server. Hier wird kein Anthropic-Schlüssel gebraucht.")
+                    Text(mode == .openrouter
+                         ? "Anfragen gehen direkt an OpenRouter (Claude Haiku 5.5 für Fotos & Text, Jev Router fürs Klicken). Der Key bleibt nur auf diesem iPhone."
+                         : "Alle KI-Anfragen gehen an deinen Server. Hier wird kein OpenRouter-Key gebraucht.")
                 }
 
-                if mode == .direct {
-                    Section("Anthropic API-Key") {
-                        SecretRows(placeholder: "sk-ant-…", input: $apiKeyInput, hint: apiKeyHint) {
+                if mode == .openrouter {
+                    Section("OpenRouter-Key") {
+                        SecretRows(placeholder: "sk-or-…", input: $apiKeyInput, hint: apiKeyHint) {
                             if store.setSecret(.apiKey, nil) { apiKeyHint = nil }
                         }
                     }
@@ -114,7 +114,7 @@ struct SettingsView: View {
     private func loadOnce() {
         guard !loaded else { return }
         loaded = true
-        mode = store.mode ?? .direct
+        mode = store.mode ?? .openrouter
         apiKeyHint = store.secret(.apiKey).map(SettingsStore.masked)
         serverUrl = store.serverUrl ?? ""
         tokenHint = store.secret(.serverToken).map(SettingsStore.masked)

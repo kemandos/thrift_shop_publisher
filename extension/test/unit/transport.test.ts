@@ -1,4 +1,4 @@
-import { directTransport, serverTransport, TransportError } from "@/src/transport";
+import { openRouterTransport, serverTransport, TransportError } from "@/src/transport";
 
 const usage = { inputTokens: 10, outputTokens: 5 };
 
@@ -47,20 +47,41 @@ describe("server transport", () => {
   });
 });
 
-describe("direct transport", () => {
-  it("requires an API key", () => {
-    expect(() => directTransport("  ")).toThrowError(/API-Key/);
+describe("openrouter transport", () => {
+  const models = { model: "anthropic/claude-haiku-5.5", navModel: "typesafe/jev-router" };
+  it("requires a key", () => {
+    expect(() => openRouterTransport("  ", models)).toThrowError(/OpenRouter-Key/);
   });
 
-  it("passes calls to the shared runner with the user's client", async () => {
-    const parse = vi.fn(async () => ({ parsed_output: { choice: "M" }, stop_reason: "end_turn", usage: { input_tokens: 3, output_tokens: 1 } }));
-    const t = directTransport("sk-ant-x", () => ({ messages: { parse } }) as never);
+  it("routes option choosing to the navigation model (Jev) and returns cost", async () => {
+    const calls: Array<{ url: string; body: { model: string } }> = [];
+    const fn = (async (url: string, init?: RequestInit) => {
+      calls.push({ url, body: JSON.parse(init!.body as string) });
+      return new Response(
+        JSON.stringify({
+          choices: [{ message: { content: JSON.stringify({ choice: "M" }) }, finish_reason: "stop" }],
+          usage: { prompt_tokens: 3, completion_tokens: 1, cost: 0.00001 },
+        }),
+      );
+    }) as unknown as typeof fetch;
+    const t = openRouterTransport("sk-or-x", models, fn);
     const attrs = {
       itemType: "Pullover", categoryPath: [], brand: null, brandEvidence: "none", size: "M", sizeEvidence: "label",
       colors: [], material: null, condition: "gut", defects: [], priceMinEur: 5, priceMaxEur: 9,
     } as never;
     const r = await t.call("choose", { field: "size", attributes: attrs, options: ["S", "M"] });
     expect(r.result.choice).toBe("M");
-    expect(parse).toHaveBeenCalledOnce();
+    expect(r.usage.costUsd).toBe(0.00001);
+    expect(calls[0]!.url).toBe("https://openrouter.ai/api/v1/chat/completions");
+    expect(calls[0]!.body.model).toBe("typesafe/jev-router");
+    await t.call("rewrite", { attributes: attrs, style: { language: "de", tone: "freundlich", closingText: "" } }).catch(() => {});
+    expect(calls[1]!.body.model).toBe("anthropic/claude-haiku-5.5");
+  });
+
+  it("test() checks the key against OpenRouter", async () => {
+    const bad = (async () => new Response("{}", { status: 401 })) as unknown as typeof fetch;
+    await expect(openRouterTransport("sk-or-bad", models, bad).test()).rejects.toMatchObject({ kind: "unauthorized" });
+    const good = (async () => new Response(JSON.stringify({ data: {} }))) as unknown as typeof fetch;
+    await expect(openRouterTransport("sk-or-ok", models, good).test()).resolves.toBeUndefined();
   });
 });

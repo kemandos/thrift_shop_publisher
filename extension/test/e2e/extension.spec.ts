@@ -143,8 +143,12 @@ test("options page: language/tone are lists, key is stored masked, popup opens t
   await expect(page.locator("input[name=language]")).toHaveCount(2);
   await expect(page.locator("#languages")).toHaveText(/Deutsch\s*English/);
   await expect(page.locator("input[name=tone]")).toHaveCount(4);
-  await page.locator("input[name=mode][value=direct]").check();
-  await page.fill("#apiKey", "sk-ant-test-key-3fA9");
+  await expect(page.locator("input[name=mode][value=openrouter]")).toBeChecked();
+  await expect(page.locator("input[name=model][value='anthropic/claude-haiku-5.5']")).toBeChecked();
+  await expect(page.locator("input[name=navModel][value='typesafe/jev-router']")).toBeChecked();
+  await expect(page.locator("input[name=model]")).toHaveCount(2);
+  await page.locator("input[name=model][value='typesafe/jev-router']").check();
+  await page.fill("#apiKey", "sk-or-test-key-3fA9");
   await page.locator("input[name=language][value=en]").check();
   await page.click("#save");
   await expect(page.locator("#apiKeyMasked")).toHaveText("Gespeichert: ••••••••3fA9");
@@ -153,7 +157,13 @@ test("options page: language/tone are lists, key is stored masked, popup opens t
     // @ts-expect-error chrome is available in the extension service worker
     return (await chrome.storage.local.get("settings")).settings;
   });
-  expect(stored).toMatchObject({ mode: "direct", apiKey: "sk-ant-test-key-3fA9", language: "en" });
+  expect(stored).toMatchObject({
+    mode: "openrouter",
+    apiKey: "sk-or-test-key-3fA9",
+    model: "typesafe/jev-router",
+    navModel: "typesafe/jev-router",
+    language: "en",
+  });
 
   const popup = await ctx.newPage();
   await popup.goto(`chrome-extension://${id}/popup.html`);

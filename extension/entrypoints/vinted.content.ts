@@ -7,11 +7,14 @@ import { fillForm, rewriteText, type FillContext } from "@/src/fill/fill";
 import { saveSettings, styleFrom, type Settings } from "@/src/settings";
 import { createPanel } from "@/src/ui/panel";
 
-function friendlyError(e: unknown): string {
+function friendlyError(e: unknown, mode: Settings["mode"]): string {
   if (e instanceof ClientError) {
-    if (e.kind === "no_key") return "Bitte zuerst in den Einstellungen einen API-Key eintragen.";
+    if (e.kind === "no_key") return "Bitte zuerst in den Einstellungen deinen OpenRouter-Key eintragen.";
     if (e.kind === "disabled") return "Automatisches Ausfüllen ist gerade deaktiviert.";
-    if (e.kind === "unauthorized") return "Server-Token ungültig – bitte in den Einstellungen prüfen.";
+    if (e.kind === "unauthorized")
+      return mode === "server"
+        ? "Server-Token ungültig – bitte in den Einstellungen prüfen."
+        : "OpenRouter-Key ungültig – bitte in den Einstellungen prüfen.";
     if (e.kind === "invalid_output" || e.kind === "truncated")
       return "Konnte das Inserat nicht erstellen – bitte erneut versuchen.";
     return e.message;
@@ -53,7 +56,7 @@ export default defineContentScript({
       try {
         await fn();
       } catch (e) {
-        panel.setStatus(friendlyError(e), true);
+        panel.setStatus(friendlyError(e, settings.mode), true);
       } finally {
         busy = false;
         panel.setBusy(false);
@@ -111,7 +114,7 @@ export default defineContentScript({
       wasEnabled = ok;
       panel.setEnabled(ok, ok ? undefined : "Erst Fotos hinzufügen");
       if (ok && !lastAttributes) {
-        panel.setStatus(configured() ? "Bereit." : "Bitte zuerst in den Einstellungen einen API-Key oder Server eintragen.");
+        panel.setStatus(configured() ? "Bereit." : "Bitte zuerst in den Einstellungen deinen OpenRouter-Key eintragen.");
       }
     };
     updateEnabled();

@@ -4,18 +4,26 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Thrift</title>
-    <link rel="stylesheet" href="../../src/ui/page.css" />
+    <link rel="stylesheet" href="../../src/ui/tailwind.css" />
   </head>
-  <body class="popup">
-    <h1>Thrift</h1>
-    <p class="sub">Vinted-Inserate aus deinen Fotos</p>
-    <button id="sell" class="primary">Artikel verkaufen</button>
-    <div id="setup" class="note hidden">Noch kein API-Key bzw. Server eingetragen.</div>
-    <dl class="cost">
-      <div><dt>Letztes Inserat</dt><dd id="last">–</dd></div>
-      <div><dt>Dieser Monat</dt><dd id="month">–</dd></div>
+  <body class="m-0 w-[300px] bg-paper p-4 font-sans text-ink antialiased">
+    <h1 class="m-0 font-serif text-3xl font-medium tracking-tight">Thrift</h1>
+    <p class="mt-1 mb-4 text-[15px] text-muted">Vinted-Inserate aus deinen Fotos</p>
+    <button id="sell" class="btn-primary">Artikel verkaufen</button>
+    <div id="setup" class="card mt-2.5 hidden px-3 py-2.5 text-[13px]">
+      Noch kein OpenRouter-Key bzw. Server eingetragen.
+    </div>
+    <dl class="mt-3.5 mb-0 flex gap-3">
+      <div class="card flex-1 rounded-2xl p-2.5">
+        <dt class="text-[11px] text-muted">Letztes Inserat</dt>
+        <dd id="last" class="m-0 mt-0.5 font-semibold">–</dd>
+      </div>
+      <div class="card flex-1 rounded-2xl p-2.5">
+        <dt class="text-[11px] text-muted">Dieser Monat</dt>
+        <dd id="month" class="m-0 mt-0.5 font-semibold">–</dd>
+      </div>
     </dl>
-    <button id="options" class="ghost">Einstellungen</button>
+    <button id="options" class="btn-ghost mt-3 w-full">Einstellungen</button>
     <script type="module" src="./main.ts"></script>
   </body>
 </html>

@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+/* Only scan the extension's own UI code for class names. */
+@source not "../../test";
+@source not "../../.output";
+
+/* Atelier palette (design D7b): warm paper, ink, one quiet spruce accent. No orange, no violet. */
+@theme {
+  --color-paper: #f7f5f1;
+  --color-ink: #1c1b19;
+  --color-muted: #8a857d;
+  --color-line: #e3dfd8;
+  --color-photo: #ece8e1;
+  --color-spruce: #3e4a43;
+  --color-spruce-soft: #c9c4bc;
+  --color-danger: #8a2b2b;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  --font-serif: "New York", "Newsreader", ui-serif, Georgia, serif;
+}
+
+@layer components {
+  .btn-primary {
+    @apply flex h-12 w-full cursor-pointer items-center justify-center rounded-full border-0 bg-spruce px-5 text-base font-semibold text-paper shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] transition-opacity hover:opacity-90 disabled:cursor-default disabled:bg-spruce-soft disabled:hover:opacity-100;
+  }
+  .btn-ghost {
+    @apply flex h-9 cursor-pointer items-center justify-center rounded-full border border-line bg-white px-3.5 text-sm font-medium text-ink transition-colors hover:bg-paper disabled:cursor-default disabled:opacity-60;
+  }
+  .field {
+    @apply w-full rounded-xl border border-line bg-white px-3 py-2.5 text-[15px] text-ink outline-none placeholder:text-muted focus:border-spruce;
+  }
+  .eyebrow {
+    @apply text-[11px] font-semibold uppercase tracking-[0.12em] text-muted;
+  }
+  .card {
+    @apply rounded-[22px] bg-white;
+  }
+  .radio-row {
+    @apply flex cursor-pointer items-center gap-3 border-b border-line py-3 text-base text-ink last:border-b-0;
+  }
+  .radio-row input {
+    @apply size-4 accent-spruce;
+  }
+}

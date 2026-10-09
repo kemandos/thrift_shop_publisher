@@ -15,7 +15,12 @@ import {
   styleInstruction,
   TONES,
   LANGUAGES,
+  anthropicLlm,
+  openRouterLlm,
+  strictJsonSchema,
+  OPENROUTER_URL,
 } from "../src";
+import { z } from "zod";
 
 const attrs: Attributes = {
   itemType: "Strickpullover",
@@ -38,7 +43,7 @@ function fakeClient(outputs: Array<{ parsed: unknown; stop?: string }>) {
     if (!o) throw new Error("no more outputs");
     return { parsed_output: o.parsed, stop_reason: o.stop ?? "end_turn", usage: { input_tokens: 1000, output_tokens: 200 } };
   });
-  return { client: { messages: { parse } } as unknown as Anthropic, parse };
+  return { client: anthropicLlm({ messages: { parse } } as unknown as Anthropic), parse };
 }
 
 const photo = { mediaType: "image/jpeg" as const, data: "AAAA" };
@@ -118,8 +123,8 @@ describe("ai runner", () => {
     const { client, parse } = fakeClient([{ parsed: good.text }]);
     const r = await rewrite(client, { attributes: attrs, style: { ...style, language: "en", closingText: "" } });
     expect(r.result.title).toContain("COS");
-    const call = parse.mock.calls[0]![0] as { messages: Array<{ content: unknown }> };
-    expect(typeof call.messages[0]!.content).toBe("string");
+    const call = parse.mock.calls[0]![0] as { messages: Array<{ content: Array<{ type: string }> }> };
+    expect(call.messages[0]!.content.every((c) => c.type === "text")).toBe(true);
   });
 
   it("choose only accepts offered options", async () => {
@@ -136,6 +141,86 @@ describe("ai runner", () => {
     expect((await pickElement(ok.client, { goal: "Zustand öffnen", elements: els })).result.id).toBe("e1");
     const bad = fakeClient([{ parsed: { id: "e9" } }]);
     expect((await pickElement(bad.client, { goal: "x", elements: els })).result.id).toBeNull();
+  });
+});
+
+describe("openrouter", () => {
+  const good = {
+    attributes: attrs,
+    text: { title: "COS Strickpullover beige Gr. M", description: "Weicher Pullover.", hashtags: ["cos"] },
+  };
+  function fakeFetch(replies: Array<{ status?: number; body: unknown }>) {
+    const f = vi.fn(async (_url: string, _init: RequestInit) => {
+      const r = replies.shift();
+      if (!r) throw new Error("no more replies");
+      return new Response(JSON.stringify(r.body), { status: r.status ?? 200 });
+    });
+    return f;
+  }
+  const reply = (content: unknown, finish = "stop", cost = 0.0002) => ({
+    body: {
+      choices: [{ message: { content: typeof content === "string" ? content : JSON.stringify(content) }, finish_reason: finish }],
+      usage: { prompt_tokens: 1200, completion_tokens: 300, cost },
+    },
+  });
+
+  it("sends images as data URLs with a strict JSON schema and uses the reported cost", async () => {
+    const f = fakeFetch([reply(good)]);
+    const llm = openRouterLlm({ apiKey: "sk-or-test", fetch: f as unknown as typeof fetch });
+    const r = await analyze(llm, { photos: [photo], style });
+    expect(r.result.attributes.size).toBe("M");
+    expect(r.usage).toEqual({ inputTokens: 1200, outputTokens: 300, costUsd: 0.0002 });
+    expect(costEur(r.usage)).toBeCloseTo(0.0002 * 0.92, 8);
+    const [url, init] = f.mock.calls[0]!;
+    expect(url).toBe(OPENROUTER_URL);
+    expect((init.headers as Record<string, string>).Authorization).toBe("Bearer sk-or-test");
+    const body = JSON.parse(init.body as string);
+    expect(body.model).toBe("anthropic/claude-haiku-5.5");
+    expect(body.response_format.json_schema.strict).toBe(true);
+    expect(body.provider.require_parameters).toBe(true);
+    const parts = body.messages[1].content as Array<{ type: string; image_url?: { url: string } }>;
+    expect(parts.find((p) => p.type === "image_url")!.image_url!.url).toBe("data:image/jpeg;base64,AAAA");
+  });
+
+  it("retries once on unparsable JSON and treats length as truncated", async () => {
+    const f = fakeFetch([reply("{not json"), reply(good)]);
+    const r = await analyze(openRouterLlm({ apiKey: "k", fetch: f as unknown as typeof fetch }), { photos: [photo], style });
+    expect(f).toHaveBeenCalledTimes(2);
+    expect(r.usage.costUsd).toBeCloseTo(0.0004, 8);
+    const t = fakeFetch([reply("{", "length"), reply("{", "length")]);
+    await expect(
+      analyze(openRouterLlm({ apiKey: "k", fetch: t as unknown as typeof fetch }), { photos: [photo], style }),
+    ).rejects.toMatchObject({ kind: "truncated" });
+  });
+
+  it("maps HTTP errors to readable messages", async () => {
+    const f = fakeFetch([{ status: 401, body: { error: { message: "No auth" } } }]);
+    await expect(
+      rewrite(openRouterLlm({ apiKey: "bad", fetch: f as unknown as typeof fetch }), { attributes: attrs, style }),
+    ).rejects.toMatchObject({ kind: "unauthorized", message: "OpenRouter-Key ungültig" });
+    const g = fakeFetch([{ status: 402, body: { error: { message: "credits" } } }]);
+    await expect(
+      rewrite(openRouterLlm({ apiKey: "k", fetch: g as unknown as typeof fetch }), { attributes: attrs, style }),
+    ).rejects.toMatchObject({ kind: "request", message: "OpenRouter-Guthaben aufgebraucht" });
+  });
+
+  it("uses the chosen model (Jev Router)", async () => {
+    const f = fakeFetch([reply({ choice: "M" })]);
+    const llm = openRouterLlm({ apiKey: "k", model: "typesafe/jev-router", fetch: f as unknown as typeof fetch });
+    const r = await choose(llm, { field: "size", attributes: attrs, options: ["S", "M"] });
+    expect(r.result.choice).toBe("M");
+    expect(JSON.parse(f.mock.calls[0]![1].body as string).model).toBe("typesafe/jev-router");
+  });
+
+  it("strict schema: every object closed and fully required", () => {
+    const js = strictJsonSchema(z.object({ a: z.string(), b: z.object({ c: z.number().nullable() }) })) as {
+      additionalProperties: boolean;
+      required: string[];
+      properties: { b: { additionalProperties: boolean; required: string[] } };
+    };
+    expect(js.additionalProperties).toBe(false);
+    expect(js.required).toEqual(["a", "b"]);
+    expect(js.properties.b).toMatchObject({ additionalProperties: false, required: ["c"] });
   });
 });
 

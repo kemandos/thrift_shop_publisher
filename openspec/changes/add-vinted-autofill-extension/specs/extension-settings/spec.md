@@ -7,15 +7,26 @@ Lets the owner configure how the extension reaches the AI and how listings are w
 ## ADDED Requirements
 
 ### Requirement: AI access mode
-The settings SHALL offer two modes: "Eigener API-Key" (direct calls to Anthropic with a key entered by the user) and "Eigener Server" (calls to a configured HTTPS server URL with a personal access token).
+The settings SHALL offer two modes: "OpenRouter (eigener Key)" (default; direct calls to OpenRouter with a key entered by the user) and "Eigener Server" (calls to a configured HTTPS server URL with a personal access token).
 
-#### Scenario: Direct mode
-- **WHEN** the user enters an Anthropic key and taps "Verbindung testen"
-- **THEN** the extension confirms the key works and uses direct calls
+#### Scenario: OpenRouter mode
+- **WHEN** the user enters an OpenRouter key and taps "Verbindung testen"
+- **THEN** the extension confirms the key works and sends AI requests to OpenRouter
 
 #### Scenario: Server mode
 - **WHEN** the user enters their server URL and token
-- **THEN** all AI requests go to that server and no Anthropic key is stored in the extension
+- **THEN** all AI requests go to that server and no OpenRouter key is stored in the extension
+
+### Requirement: Model choice
+The settings SHALL offer exactly two models, Claude Haiku 5.5 and Jev Router, chosen separately for "Fotos & Text" (default Claude Haiku 5.5) and "Klicken & Navigieren" (choosing picker options and finding form elements; default Jev Router). Other values SHALL fall back to these defaults.
+
+#### Scenario: Defaults
+- **WHEN** the user has not changed the models
+- **THEN** photo analysis and rewrites use Claude Haiku 5.5 and option choosing and element finding use Jev Router
+
+#### Scenario: Only two models
+- **WHEN** the user opens the model choice
+- **THEN** only Claude Haiku 5.5 and Jev Router are listed
 
 ### Requirement: Secrets stay local
 API keys and tokens SHALL be stored only in the extension's local storage on that device, never synced, logged or shown in full after saving.

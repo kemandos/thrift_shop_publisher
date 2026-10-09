@@ -1,35 +1,23 @@
 import { LANGUAGE_LABELS, LANGUAGES, TONE_LABELS, TONES, type Language, type Tone } from "@thrift/shared";
 import type { Unresolved } from "../fill/fill";
+import tailwindCss from "./tailwind.css?inline";
 
-/** Atelier palette (see design D7b). */
-const CSS = `
-:host { all: initial; }
-.card { position: fixed; right: 12px; bottom: 84px; z-index: 2147483646; width: min(340px, calc(100vw - 24px));
-  box-sizing: border-box; background: rgba(247,245,241,0.94); -webkit-backdrop-filter: blur(20px) saturate(180%);
-  backdrop-filter: blur(20px) saturate(180%); border: 1px solid rgba(255,255,255,0.7); border-radius: 22px;
-  box-shadow: 0 12px 34px rgba(28,27,25,0.18), inset 0 1px 0 rgba(255,255,255,0.9);
-  font: 15px/1.35 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; color: #1C1B19; padding: 12px; }
-.row { display: flex; gap: 8px; align-items: center; }
-.brand { font: 600 11px/1 -apple-system, system-ui, sans-serif; letter-spacing: 1.2px; color: #8A857D; text-transform: uppercase; flex: 1; }
-.min { border: none; background: transparent; color: #8A857D; font-size: 18px; cursor: pointer; padding: 4px 6px; }
-button.primary { flex: 1; height: 46px; border: none; border-radius: 23px; background: #3E4A43; color: #F7F5F1;
-  font: 600 16px/1 -apple-system, system-ui, sans-serif; cursor: pointer; box-shadow: inset 0 1px 0 rgba(255,255,255,0.25); }
-button.primary:disabled { background: #C9C4BC; cursor: default; }
-button.ghost { height: 36px; border-radius: 18px; border: 1px solid #E3DFD8; background: #fff; color: #1C1B19; padding: 0 12px;
-  font: 500 14px/1 -apple-system, system-ui, sans-serif; cursor: pointer; }
-select { height: 36px; border-radius: 12px; border: 1px solid #E3DFD8; background: #fff; color: #1C1B19; padding: 0 8px;
-  font: 14px -apple-system, system-ui, sans-serif; flex: 1; }
-.status { margin-top: 8px; font-size: 13px; color: #6F6A63; min-height: 18px; }
-.status.err { color: #8A2B2B; }
-.list { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; }
-.item { display: flex; gap: 8px; align-items: center; background: #fff; border-radius: 12px; padding: 8px 10px; }
-.item .k { font-size: 12px; color: #8A857D; }
-.item .v { font-size: 13px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.notice { margin-top: 8px; background: #fff; border-radius: 14px; padding: 12px; font-size: 13px; }
-.notice p { margin: 0 0 8px; }
-.hidden { display: none !important; }
-.foot { margin-top: 6px; font-size: 11px; color: #8A857D; text-align: right; }
-`;
+/**
+ * Tailwind build (Atelier theme, src/ui/tailwind.css), injected into the panel's shadow root so
+ * it neither leaks into nor inherits from vinted.de.
+ */
+const SHADOW_CSS = `${tailwindCss}\n:host { all: initial; }`;
+
+/** Browsers ignore @property inside shadow roots; register Tailwind's --tw-* properties on the page once. */
+function registerProperties(doc: Document) {
+  if (doc.querySelector("style[data-thrift-props]")) return;
+  const rules = tailwindCss.match(/@property\s+--tw-[\w-]+\s*\{[^}]*\}/g);
+  if (!rules) return;
+  const style = doc.createElement("style");
+  style.setAttribute("data-thrift-props", "");
+  style.textContent = rules.join("\n");
+  doc.head.append(style);
+}
 
 export interface PanelHandlers {
   onFill(): void;
@@ -60,39 +48,50 @@ export function createPanel(doc: Document, h: PanelHandlers): Panel {
   const host = doc.createElement("div");
   host.setAttribute("data-thrift-ui", "");
   const root = host.attachShadow({ mode: "open" });
-  root.append(el("style", {}, CSS));
+  root.append(el("style", {}, SHADOW_CSS));
+  registerProperties(doc);
 
-  const card = el("div", { class: "card", role: "region", "aria-label": "Thrift" });
-  const head = el("div", { class: "row" });
-  head.append(el("div", { class: "brand" }, "Thrift"));
-  const min = el("button", { class: "min", "aria-label": "Minimieren" }, "–");
+  const card = el("div", {
+    class:
+      "fixed right-3 bottom-[84px] z-[2147483646] w-[min(340px,calc(100vw-24px))] rounded-[22px] border border-white/70 " +
+      "bg-paper/95 p-3 font-sans text-[15px] leading-snug text-ink antialiased backdrop-blur-xl backdrop-saturate-150 " +
+      "shadow-[0_12px_34px_rgba(28,27,25,0.18),inset_0_1px_0_rgba(255,255,255,0.9)]",
+    role: "region",
+    "aria-label": "Thrift",
+  });
+  const head = el("div", { class: "flex items-center gap-2" });
+  head.append(el("div", { class: "eyebrow flex-1" }, "Thrift"));
+  const min = el(
+    "button",
+    { class: "cursor-pointer border-0 bg-transparent px-1.5 py-1 text-lg leading-none text-muted", "aria-label": "Minimieren" },
+    "–",
+  );
   head.append(min);
 
   const body = el("div");
-  const styleRow = el("div", { class: "row" });
-  styleRow.style.marginTop = "8px";
-  const lang = el("select", { "aria-label": "Sprache" });
+  const selectCls = "h-9 flex-1 rounded-xl border border-line bg-white px-2 text-sm text-ink outline-none focus:border-spruce";
+  const styleRow = el("div", { class: "mt-2 flex items-center gap-2" });
+  const lang = el("select", { class: selectCls, "aria-label": "Sprache" });
   for (const l of LANGUAGES) lang.append(el("option", { value: l }, LANGUAGE_LABELS[l]));
-  const tone = el("select", { "aria-label": "Ton" });
+  const tone = el("select", { class: selectCls, "aria-label": "Ton" });
   for (const t of TONES) tone.append(el("option", { value: t }, TONE_LABELS[t]));
   styleRow.append(lang, tone);
 
-  const actions = el("div", { class: "row" });
-  actions.style.marginTop = "8px";
-  const fill = el("button", { class: "primary", "data-testid": "thrift-fill" }, "✨ Ausfüllen");
-  const rewrite = el("button", { class: "ghost hidden", "data-testid": "thrift-rewrite" }, "Neu schreiben");
+  const actions = el("div", { class: "mt-2 flex items-center gap-2" });
+  const fill = el("button", { class: "btn-primary h-[46px] flex-1", "data-testid": "thrift-fill" }, "✨ Ausfüllen");
+  const rewrite = el("button", { class: "btn-ghost hidden shrink-0", "data-testid": "thrift-rewrite" }, "Neu schreiben");
   actions.append(fill, rewrite);
 
-  const status = el("div", { class: "status", role: "status", "aria-live": "polite" });
-  const list = el("div", { class: "list" });
-  const notice = el("div", { class: "notice hidden", "data-testid": "thrift-notice" });
+  const status = el("div", { class: "mt-2 min-h-[18px] text-[13px] text-muted", role: "status", "aria-live": "polite" });
+  const list = el("div", { class: "mt-2 flex flex-col gap-1.5" });
+  const notice = el("div", { class: "card mt-2 hidden space-y-2 rounded-[14px] p-3 text-[13px]", "data-testid": "thrift-notice" });
   notice.append(
     el("p", {}, "Thrift füllt das Vinted-Formular in deinem eigenen Browser aus. Den Button „Hochladen“ klickst immer du selbst."),
     el("p", {}, "Hinweis: Vinteds Nutzungsbedingungen schränken externe Tools ein. Thrift handelt nur nach deinem Klick und sendet nichts ab."),
   );
-  const ok = el("button", { class: "primary", "data-testid": "thrift-notice-ok" }, "Verstanden");
+  const ok = el("button", { class: "btn-primary", "data-testid": "thrift-notice-ok" }, "Verstanden");
   notice.append(ok);
-  const foot = el("div", { class: "foot" });
+  const foot = el("div", { class: "mt-1.5 text-right text-[11px] text-muted" });
 
   body.append(styleRow, actions, notice, status, list, foot);
   card.append(head, body);
@@ -123,7 +122,8 @@ export function createPanel(doc: Document, h: PanelHandlers): Panel {
     },
     setStatus(msg, error = false) {
       status.textContent = msg;
-      status.classList.toggle("err", error);
+      status.classList.toggle("text-danger", error);
+      status.classList.toggle("text-muted", !error);
     },
     setStyle(l, t) {
       lang.value = l;
@@ -136,17 +136,15 @@ export function createPanel(doc: Document, h: PanelHandlers): Panel {
       rewrite.classList.toggle("hidden", !canRewrite);
       list.replaceChildren();
       for (const u of unresolved) {
-        const item = el("div", { class: "item" });
-        const txt = el("div", { class: "v", title: u.value }, u.value);
-        const k = el("div", { class: "k" }, u.label);
-        const copy = el("button", { class: "ghost", "data-testid": `thrift-copy-${u.key}` }, "Kopieren");
+        const item = el("div", { class: "flex items-center gap-2 rounded-xl bg-white px-2.5 py-2" });
+        const txt = el("div", { class: "truncate text-[13px]", title: u.value }, u.value);
+        const k = el("div", { class: "text-xs text-muted" }, u.label);
+        const copy = el("button", { class: "btn-ghost shrink-0", "data-testid": `thrift-copy-${u.key}` }, "Kopieren");
         copy.addEventListener("click", async () => {
           await navigator.clipboard?.writeText(u.value).catch(() => {});
           copy.textContent = "Kopiert ✓";
         });
-        const col = el("div");
-        col.style.flex = "1";
-        col.style.minWidth = "0";
+        const col = el("div", { class: "min-w-0 flex-1" });
         col.append(k, txt);
         item.append(col, copy);
         list.append(item);

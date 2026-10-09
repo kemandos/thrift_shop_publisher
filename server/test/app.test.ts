@@ -3,7 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { costEur, DEFAULT_FORM_MAP, type Attributes } from "@thrift/shared";
-import { createApp, type AnthropicLike } from "../src/app";
+import type { LlmClient } from "@thrift/shared";
+import { createApp } from "../src/app";
 import { ConfigError, loadConfig } from "../src/config";
 import { FileUsageStore, MemoryUsageStore } from "../src/usage";
 
@@ -36,11 +37,11 @@ const analyzeBody = {
 function setup(outputs: unknown[] = []) {
   const parse = vi.fn(async () => {
     if (outputs.length === 0) throw new Error("no more outputs");
-    return { parsed_output: outputs.shift(), stop_reason: "end_turn", usage: { input_tokens: 1000, output_tokens: 200 } };
+    return { raw: outputs.shift(), stop: "ok" as const, inputTokens: 1000, outputTokens: 200 };
   });
   const usageStore = new MemoryUsageStore();
   const app = createApp({
-    anthropic: { messages: { parse } } as unknown as AnthropicLike,
+    llm: { model: "anthropic/claude-haiku-5.5", structured: parse } as unknown as LlmClient,
     tokens: TOKENS,
     autofillEnabled: true,
     formMap: DEFAULT_FORM_MAP,
@@ -184,8 +185,19 @@ describe("config", () => {
     expect(c).toMatchObject({ tokens: TOKENS, autofillEnabled: true, port: 8787, formMap: DEFAULT_FORM_MAP });
   });
 
+  it("prefers OpenRouter when its key is set", () => {
+    expect(loadConfig(base)).toMatchObject({ provider: "anthropic", model: "claude-haiku-5-5" });
+    const c = loadConfig({ ...base, OPENROUTER_API_KEY: "sk-or-x" });
+    expect(c).toMatchObject({
+      provider: "openrouter",
+      apiKey: "sk-or-x",
+      model: "anthropic/claude-haiku-5.5",
+      navModel: "typesafe/jev-router",
+    });
+  });
+
   it("fails fast on missing or weak settings", () => {
-    expect(() => loadConfig({ ...base, ANTHROPIC_API_KEY: "" })).toThrow(/ANTHROPIC_API_KEY/);
+    expect(() => loadConfig({ ...base, ANTHROPIC_API_KEY: "" })).toThrow(/OPENROUTER_API_KEY/);
     expect(() => loadConfig({ ANTHROPIC_API_KEY: "x" })).toThrow(/THRIFT_TOKENS/);
     expect(() => loadConfig({ ...base, THRIFT_TOKENS: "short" })).toThrow(ConfigError);
     expect(() => loadConfig({ ...base, AUTOFILL_ENABLED: "maybe" })).toThrow(/AUTOFILL_ENABLED/);

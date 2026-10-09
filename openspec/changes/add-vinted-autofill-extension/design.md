@@ -37,6 +37,7 @@ See `proposal.md`. Constraints:
 
 - **Content script:** matches only `https://www.vinted.de/items/new*` (plus edit pages later). It mounts a small Shadow-DOM control: "✨ Ausfüllen · Deutsch · Freundlich", a status line, and copy buttons on fallback.
 - **Popup and options page:** "Artikel verkaufen", settings and cost.
+- **Styling:** Tailwind CSS v4 via `@tailwindcss/vite`, with the Atelier palette as theme tokens in `src/ui/tailwind.css` (paper, ink, muted, line, spruce; no orange or violet). Popup and options load it as a stylesheet. The panel injects the same build into its shadow root (`?inline`), so it neither leaks into nor inherits from vinted.de. Tailwind's `@property` rules are registered once on the page, because browsers ignore them inside shadow roots.
 - **Background service worker:** makes the AI calls, so keys never live in the page context.
 - **Safari:** the same build is converted with `xcrun safari-web-extension-converter` into the iOS container (V7).
 
@@ -51,9 +52,9 @@ See `proposal.md`. Constraints:
   - The category is resolved first, because size options depend on it.
   - The AI therefore gets: photos, the top-level category list, and, after the category is chosen, the size, condition and colour options in a second, cheap text-only step.
 
-### V4 — AI calls (Claude Haiku 5.5)
+### V4 — AI calls (OpenRouter: Claude Haiku 5.5 + Jev Router)
 
-1. **Analyse.** One call with up to 6 photos (≈1.6K tokens each) and the category options. It returns structured output with `output_config.format` and a JSON schema from `packages/shared`:
+1. **Analyse.** One call with up to 6 photos (≈1.6K tokens each) and the category options. It returns structured output (`response_format: json_schema`, strict) with a JSON schema generated from the Zod schemas in `packages/shared`:
    - type, category path, brand, size, colours, material, condition, defects, price range;
    - title, description and hashtags in the chosen language and tone;
    - evidence flags ("size from label").
@@ -62,9 +63,16 @@ See `proposal.md`. Constraints:
 
 **Cost:** ≈0.2 ct per item. Each fill's `usage` is shown in the popup and summed per month.
 
-**Settings:** model `claude-haiku-5-5`, effort `low` for refine and rewrite, `medium` for analyse.
+**Provider:** OpenRouter's OpenAI-compatible `/api/v1/chat/completions`, one key for both models. Images go as `image_url` data URLs; `provider.require_parameters` keeps routing to providers that honour `response_format`; `usage.include` returns the exact cost per call, which is what the popup shows.
 
-**Direct mode:** the official `@anthropic-ai/sdk` runs in the background worker with `dangerouslyAllowBrowser: true` and the user's key. This is acceptable because the key is the user's own and lives only on the user's device.
+**Models (only these two):**
+- `anthropic/claude-haiku-5.5` for photos → listing (analyse, rewrite). $0.10 / $0.50 per 1M tokens.
+- `typesafe/jev-router` for clicking and navigation (choosing picker options, AI element picking). It picks the underlying model per request; cost comes from OpenRouter's reported `usage.cost`.
+Both are switchable in the settings; nothing else is offered.
+
+**Provider-neutral layer:** `packages/shared` defines an `LlmClient` (`structured()` → raw JSON, stop reason, tokens, cost). `openRouterLlm` is used by the extension; the optional server can also use `anthropicLlm` when only `ANTHROPIC_API_KEY` is set. Validation, the one retry and the evidence rules sit above it, identical for both.
+
+**Key handling:** the OpenRouter key is the user's own and lives only on the user's device (extension local storage / iOS Keychain); calls run in the background worker, never in the page.
 
 ### V5 — Filling: form map first, AI element picking second
 
@@ -85,7 +93,7 @@ See `proposal.md`. Constraints:
 - **Endpoints:** `POST /analyze`, `POST /refine`, `POST /rewrite`, `POST /pick-element`, `GET /form-map`.
 - **Auth:** a bearer token per device, set in the extension settings.
 - **Storage:** none for photos or text, which are processed in memory only. Usage counts go to a small JSON file (`DATA_DIR/usage.json`).
-- **What it adds:** the Anthropic key lives only on the server; prompts and the form map update centrally; usage is tracked for both devices.
+- **What it adds:** the OpenRouter key lives only on the server; prompts and the form map update centrally; usage is tracked for both devices.
 
 The extension works without it (direct mode). The server is added when wanted.
 
@@ -110,7 +118,7 @@ The extension works without it (direct mode). The server is added when wanted.
   - Mitigations: only after a user click, no submit, human pacing, no API calls, no background activity.
   - Remote kill switch in server mode.
 - **[Safari on iOS behaves differently]** (no OffscreenCanvas in older versions, a different picker UI on the mobile layout) → Feature detection with a canvas fallback. A separate mobile form map. Early device test (task 1.3).
-- **[API key in the extension (direct mode)]** → It is the user's own key, kept in local extension storage only. Server mode avoids it entirely.
+- **[API key in the extension (OpenRouter mode)]** → It is the user's own key, kept in local extension storage only. Server mode avoids it entirely.
 - **[Free Apple ID: re-sign every 7 days on iPhone]** → Accepted for personal use, or the Developer Program can be bought later.
 
 ## Migration Plan

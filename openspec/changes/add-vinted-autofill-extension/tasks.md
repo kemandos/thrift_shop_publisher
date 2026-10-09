@@ -3,7 +3,7 @@
 ## 1. Setup and form discovery
 
 - [x] 1.1 Create pnpm monorepo (`packages/shared`, `extension/` with WXT, `server/`, `ios/` placeholder), TypeScript strict, Vitest, ESLint; verify `pnpm -r build` and `pnpm -r test` pass in the dev container
-- [ ] 1.2 Add GitHub Actions running build, lint and tests on push; verify the workflow passes
+- [x] 1.2 Add GitHub Actions running build, lint and tests on push; verify the workflow passes
 - [ ] 1.3 With the owner, record Vinted's upload form structure on desktop Chrome and iPhone Safari (fields, picker behaviour, photo preview elements) into `docs/vinted-form.md` and an initial form map JSON; verify both layouts are covered
 
 ## 2. Shared schemas (specs: listing-ai, vinted-form-autofill)
@@ -13,7 +13,7 @@
 
 ## 3. AI client (spec: listing-ai, extension-settings)
 
-- [x] 3.1 Implement AI client with two transports: direct Anthropic SDK (background worker, `dangerouslyAllowBrowser`) and own-server HTTP; verify unit tests with mocked transport for schema validation, one retry, and error message on second failure
+- [x] 3.1 Implement AI client with two transports: OpenRouter (background worker, Claude Haiku 5.5 for text, Jev Router for navigation, provider-neutral `LlmClient`) and own-server HTTP; verify unit tests with mocked transport for schema validation, one retry, and error message on second failure
 - [x] 3.2 Implement usage/cost tracking per fill and per month; verify unit test for cost calculation from `usage`
 - [ ] 3.3 Run a live evaluation on 10 real items (with labels and without) using the owner's key; verify sizes from labels are correct, no size is invented when no label is visible, and record results in `docs/ai-eval.md`
 
@@ -43,7 +43,7 @@
 
 - [ ] 7.1 Implement Hono server (`/analyze`, `/refine`, `/rewrite`, `/pick-element`, `/form-map`) with bearer-token auth, no persistence of photos/text, usage counts in a JSON file; verify unit tests and a local Docker run
 - [ ] 7.2 Add Docker Compose with Caddy (HTTPS) and deploy notes for the Oracle VM in `server/README.md`; verify `curl` against the deployed `/form-map` with token succeeds and without token fails
-- [ ] 7.3 Switch both devices to server mode; verify fills work and no Anthropic key remains in the extension
+- [ ] 7.3 Switch both devices to server mode; verify fills work and no OpenRouter key remains in the extension
 
 ## Workflow follow-up
 

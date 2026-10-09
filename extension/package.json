@@ -15,14 +15,15 @@
     "typecheck": "wxt prepare && tsc --noEmit -p ."
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "0.133.0",
     "@thrift/shared": "workspace:*",
     "zod": "4.6.5"
   },
   "devDependencies": {
     "@playwright/test": "1.56.1",
+    "@tailwindcss/vite": "4.3.3",
     "esbuild": "0.28.2",
     "happy-dom": "20.14.6",
+    "tailwindcss": "4.3.3",
     "typescript": "5.9.3",
     "vitest": "5.0.3",
     "wxt": "0.21.4"

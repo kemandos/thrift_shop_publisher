@@ -2,9 +2,9 @@ schema: spec-driven
 
 context: |
   Personal tool for one household selling clothes on Vinted (Germany), on computer (Chrome) and iPhone (Safari).
-  Primary product: a TypeScript WebExtension that fills Vinted's own web upload form (vinted.de/items/new) from photos the user added there, using Claude; the user always clicks "Hochladen" themselves.
+  Primary product: a TypeScript WebExtension that fills Vinted's own web upload form (vinted.de/items/new) from photos the user added there, using models via OpenRouter (Claude Haiku 5.5 for photos and text, Jev Router for clicking and navigation); the user always clicks "Hochladen" themselves.
   Never automate Vinted beyond filling the open form after a user click: no auto-submit, no Vinted API, no headless/server-side browser with the Vinted login, no relisting or messaging.
-  Listing text only in Deutsch or English. Keep AI cost per item well below 1 cent (default model Claude Haiku 5.5).
+  Listing text only in Deutsch or English. Keep AI cost per item well below 1 cent (Claude Haiku 5.5 for the photo analysis; only Haiku 5.5 and Jev Router are offered).
   No mandatory backend: AI calls go directly with the user's own key, or optionally through the owner's own small TypeScript server on an Oracle VM. Photos are never stored server-side.
   The parked change add-iphone-listing-app describes a possible public native product later; do not mix its subscription/backend requirements into the extension work.
 

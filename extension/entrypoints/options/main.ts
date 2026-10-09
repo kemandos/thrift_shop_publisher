@@ -1,4 +1,4 @@
-import { LANGUAGE_LABELS, LANGUAGES, TONE_LABELS, TONES, type Language, type Tone } from "@thrift/shared";
+import { LANGUAGE_LABELS, LANGUAGES, OPENROUTER_MODELS, TONE_LABELS, TONES, type Language, type Tone } from "@thrift/shared";
 import { bg } from "@/src/client";
 import { loadLocalSettings, maskSecret, mergeSettings, saveSettings, type Settings } from "@/src/settings";
 
@@ -9,7 +9,7 @@ function radioList<T extends string>(container: HTMLElement, name: string, value
   container.replaceChildren();
   for (const v of values) {
     const label = document.createElement("label");
-    label.className = "radio";
+    label.className = "radio-row";
     const input = document.createElement("input");
     input.type = "radio";
     input.name = name;
@@ -20,8 +20,32 @@ function radioList<T extends string>(container: HTMLElement, name: string, value
   }
 }
 
+type ModelId = Settings["model"];
+
+function renderModels(containerId: string, name: string, selected: ModelId) {
+  const box = $(containerId);
+  box.replaceChildren();
+  for (const m of OPENROUTER_MODELS) {
+    const label = document.createElement("label");
+    label.className = "radio-row";
+    const input = document.createElement("input");
+    input.type = "radio";
+    input.name = name;
+    input.value = m.id;
+    input.checked = m.id === selected;
+    const title = document.createElement("span");
+    title.className = "flex-1";
+    title.textContent = m.label;
+    const note = document.createElement("span");
+    note.className = "text-[13px] text-muted";
+    note.textContent = m.note;
+    label.append(input, title, note);
+    box.append(label);
+  }
+}
+
 function showMode(mode: Settings["mode"]) {
-  $("direct").classList.toggle("hidden", mode !== "direct");
+  $("openrouter").classList.toggle("hidden", mode !== "openrouter");
   $("server").classList.toggle("hidden", mode !== "server");
 }
 
@@ -31,6 +55,8 @@ function render(s: Settings) {
   showMode(s.mode);
   $<HTMLInputElement>("apiKey").value = "";
   $("apiKeyMasked").textContent = s.apiKey ? `Gespeichert: ${maskSecret(s.apiKey)}` : "";
+  renderModels("models", "model", s.model);
+  renderModels("navModels", "navModel", s.navModel);
   $<HTMLInputElement>("serverUrl").value = s.serverUrl;
   $<HTMLInputElement>("serverToken").value = "";
   $("serverTokenMasked").textContent = s.serverToken ? `Gespeichert: ${maskSecret(s.serverToken)}` : "";
@@ -48,8 +74,10 @@ async function save(): Promise<Settings> {
   const key = $<HTMLInputElement>("apiKey").value.trim();
   const token = $<HTMLInputElement>("serverToken").value.trim();
   const s = await saveSettings({
-    mode: (checked("mode") || "direct") as Settings["mode"],
+    mode: (checked("mode") || "openrouter") as Settings["mode"],
     apiKey: key || current.apiKey,
+    model: (checked("model") || current.model) as ModelId,
+    navModel: (checked("navModel") || current.navModel) as ModelId,
     serverUrl: $<HTMLInputElement>("serverUrl").value.trim(),
     serverToken: token || current.serverToken,
     language: (checked("language") || "de") as Language,

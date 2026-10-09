@@ -3,17 +3,24 @@
 A personal helper for selling clothes on **Vinted**, on the computer (Chrome) and the iPhone (Safari):
 
 1. Open **vinted.de → Artikel verkaufen** and add your photos as usual.
-2. Tap **✨ Ausfüllen**. Claude looks at the photos, reads the size from the label, and fills in title, description, category, brand, size, condition, colour and price, in **German or English** and in your chosen tone.
+2. Tap **✨ Ausfüllen**. The AI looks at the photos, reads the size from the label, and fills in title, description, category, brand, size, condition, colour and price, in **German or English** and in your chosen tone.
 3. Check it and tap **Hochladen** yourself. Thrift never uploads on its own.
 
-Cost: about 0.2 ct per item with Claude Haiku 5.5, using your own Anthropic API key. An optional small server on your own Oracle VM can hold the key instead.
+Models come from **OpenRouter**, with one key for both:
+
+| Job | Default model | Alternative |
+|---|---|---|
+| Photos & text | Claude Haiku 5.5 (`anthropic/claude-haiku-5.5`) | Jev Router |
+| Clicking & navigation (picking options, finding fields) | Jev Router (`typesafe/jev-router`) | Claude Haiku 5.5 |
+
+No other models are offered. Cost is about 0.2 ct per item for the photo analysis with Haiku. The popup shows the exact cost that OpenRouter reports.
 
 ## Repository layout
 
 | Path | What |
 |---|---|
-| `extension/` | The browser extension (TypeScript, WXT). Same code for Chrome and Safari. |
-| `packages/shared/` | Shared schemas, prompts, AI calls and cost calculation. |
+| `extension/` | The browser extension (TypeScript, WXT, Tailwind CSS). Same code for Chrome and Safari. |
+| `packages/shared/` | Shared schemas, prompts, OpenRouter client and cost calculation. |
 | `server/` | Optional own server (Hono, Docker + Caddy). See `server/README.md`. |
 | `ios/` | iPhone container app that ships the Safari extension. See `ios/README.md`. |
 | `openspec/` | Specs and plans ([OpenSpec](https://github.com/Fission-AI/OpenSpec)); the active change is `add-vinted-autofill-extension`. |
@@ -29,7 +36,7 @@ pnpm --filter @thrift/extension build      # → extension/.output/chrome-mv3
 
 1. Open `chrome://extensions` and switch on **Entwicklermodus** (Developer mode).
 2. Click **Entpackte Erweiterung laden** and choose `extension/.output/chrome-mv3`.
-3. Click the Thrift icon → **Einstellungen**. Choose **Eigener API-Key**, paste your key from console.anthropic.com, then **Verbindung testen**.
+3. Click the Thrift icon → **Einstellungen**. Paste your OpenRouter key (from [openrouter.ai/keys](https://openrouter.ai/keys)), then **Verbindung testen**.
 4. Go to vinted.de → **Artikel verkaufen**, add photos, then tap **✨ Ausfüllen**.
 
 After a code update, run the build again and click ↻ on the extension in `chrome://extensions`.
@@ -41,13 +48,13 @@ You need a Mac with Xcode. See [`ios/README.md`](ios/README.md). In short:
 1. Run `pnpm --filter @thrift/extension build:safari`.
 2. In `ios/`, run `xcodegen`, open `Thrift.xcodeproj`, choose your Team, then Run on the iPhone.
 3. On the iPhone: Einstellungen → Apps → Safari → Erweiterungen → **Thrift** on, and allow it on vinted.de.
-4. Open the Thrift app → **Einstellungen**: enter your API key (or server), language and tone.
+4. Open the Thrift app → **Einstellungen**: enter your OpenRouter key (or server), language and tone.
 
 With a free Apple ID the app has to be reinstalled from Xcode every 7 days.
 
 ## Optional: own server on Oracle
 
-See [`server/README.md`](server/README.md). Then set **Eigener Server** in the extension settings, with the URL and token.
+Not needed. If you want the key off your devices, see [`server/README.md`](server/README.md), then set **Eigener Server** in the extension settings.
 
 ## Development
 

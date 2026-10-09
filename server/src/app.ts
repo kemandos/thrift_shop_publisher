@@ -1,5 +1,4 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import type Anthropic from "@anthropic-ai/sdk";
 import {
   AiError,
   analyze,
@@ -8,9 +7,8 @@ import {
   choose,
   ChooseRequest,
   costEur,
-  DEFAULT_MODEL,
-  type AiOptions,
   type AiResponse,
+  type LlmClient,
   type FormMap,
   monthKey,
   pickElement,
@@ -25,15 +23,14 @@ import { cors } from "hono/cors";
 import type { z } from "zod";
 import type { UsageStore } from "./usage";
 
-/** Anything with `messages.parse` — the real SDK client or a test fake. */
-export type AnthropicLike = { messages: Pick<Anthropic["messages"], "parse"> };
-
 export interface AppDeps {
-  anthropic: AnthropicLike;
+  /** OpenRouter or Anthropic client (see main.ts), or a test fake. */
+  llm: LlmClient;
+  /** Model for choosing options / finding elements (Jev Router by default); falls back to `llm`. */
+  navLlm?: LlmClient;
   /** One bearer token per device; the index is the token id used for usage counts. */
   tokens: string[];
   autofillEnabled: boolean;
-  model?: string;
   formMap: FormMap;
   usageStore: UsageStore;
   /** Injected for tests. */
@@ -60,10 +57,9 @@ function makeTokenMatcher(tokens: string[]) {
   };
 }
 
-type AiRunner<S extends z.ZodTypeAny, R> = (client: Anthropic, input: z.output<S>, opts: AiOptions) => Promise<AiResponse<R>>;
+type AiRunner<S extends z.ZodTypeAny, R> = (llm: LlmClient, input: z.output<S>) => Promise<AiResponse<R>>;
 
 export function createApp(deps: AppDeps) {
-  const model = deps.model ?? DEFAULT_MODEL;
   const now = deps.now ?? (() => new Date());
   const matchToken = makeTokenMatcher(deps.tokens);
   const app = new Hono<{ Variables: { tokenId: number } }>();
@@ -107,7 +103,7 @@ export function createApp(deps: AppDeps) {
     onError: (c) => c.json({ error: "Request body too large", kind: "too_large" }, 413),
   });
 
-  function aiRoute<S extends z.ZodTypeAny, R>(path: string, schema: S, run: AiRunner<S, R>) {
+  function aiRoute<S extends z.ZodTypeAny, R>(path: string, schema: S, run: AiRunner<S, R>, llm: LlmClient = deps.llm) {
     app.post(path, limit, async (c) => {
       const parsed = schema.safeParse(await c.req.json().catch(() => undefined));
       if (!parsed.success) {
@@ -119,8 +115,8 @@ export function createApp(deps: AppDeps) {
         return c.json({ error: error || "Invalid request body", kind: "bad_request" }, 400);
       }
       try {
-        const { result, usage } = await run(deps.anthropic as Anthropic, parsed.data, { model });
-        deps.usageStore.add(c.get("tokenId"), usage, costEur(usage, model), monthKey(now()));
+        const { result, usage } = await run(llm, parsed.data);
+        deps.usageStore.add(c.get("tokenId"), usage, costEur(usage, llm.model), monthKey(now()));
         return c.json({ result, usage });
       } catch (e) {
         if (e instanceof AiError) return c.json({ error: e.message, kind: e.kind }, 502);
@@ -131,8 +127,9 @@ export function createApp(deps: AppDeps) {
 
   aiRoute(API_PATHS.analyze, AnalyzeRequest, analyze);
   aiRoute(API_PATHS.rewrite, RewriteRequest, rewrite);
-  aiRoute(API_PATHS.choose, ChooseRequest, choose);
-  aiRoute(API_PATHS.pickElement, PickElementRequest, pickElement);
+  const nav = deps.navLlm ?? deps.llm;
+  aiRoute(API_PATHS.choose, ChooseRequest, choose, nav);
+  aiRoute(API_PATHS.pickElement, PickElementRequest, pickElement, nav);
 
   app.notFound((c) => c.json({ error: "not found" }, 404));
   app.onError((err, c) => {

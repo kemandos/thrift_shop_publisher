@@ -1,7 +1,5 @@
-import type Anthropic from "@anthropic-ai/sdk";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
-import { DEFAULT_MODEL } from "./cost";
+import { LlmRequestError, type LlmClient, type Part } from "./llm";
 import {
   ANALYZE_SYSTEM,
   analyzeUserText,
@@ -53,7 +51,7 @@ const ModelPick = z.object({ id: z.string().nullable() });
 export class AiError extends Error {
   constructor(
     message: string,
-    readonly kind: "invalid_output" | "refusal" | "truncated" | "request",
+    readonly kind: "invalid_output" | "refusal" | "truncated" | "request" | "unauthorized",
   ) {
     super(message);
   }
@@ -64,39 +62,31 @@ export interface AiResponse<T> {
   usage: Usage;
 }
 
-export interface AiOptions {
-  model?: string;
-}
-
-type ParseParams = Parameters<Anthropic["messages"]["parse"]>[0];
-
 async function callStructured<S extends z.ZodTypeAny>(
-  client: Anthropic,
+  llm: LlmClient,
   schema: S,
-  params: Omit<ParseParams, "output_config"> & { effort: "low" | "medium" },
+  call: { name: string; system: string; content: Part[]; maxTokens: number; effort: "low" | "medium" },
 ): Promise<{ data: z.infer<S>; usage: Usage }> {
-  const { effort, ...rest } = params;
   let lastError: unknown;
   const total: Usage = { inputTokens: 0, outputTokens: 0 };
   // One retry on invalid output (spec: listing-ai "Valid, structured output").
   for (let attempt = 0; attempt < 2; attempt++) {
     let res;
     try {
-      res = await client.messages.parse({
-        ...rest,
-        output_config: { effort, format: zodOutputFormat(schema) },
-      } as ParseParams);
+      res = await llm.structured({ ...call, schema });
     } catch (e) {
-      throw new AiError(e instanceof Error ? e.message : String(e), "request");
+      const kind = e instanceof LlmRequestError && e.status === 401 ? "unauthorized" : "request";
+      throw new AiError(e instanceof Error ? e.message : String(e), kind);
     }
-    total.inputTokens += res.usage.input_tokens;
-    total.outputTokens += res.usage.output_tokens;
-    if (res.stop_reason === "refusal") throw new AiError("Model declined the request", "refusal");
-    if (res.stop_reason === "max_tokens") {
+    total.inputTokens += res.inputTokens;
+    total.outputTokens += res.outputTokens;
+    if (res.costUsd !== undefined) total.costUsd = (total.costUsd ?? 0) + res.costUsd;
+    if (res.stop === "refusal") throw new AiError("Model declined the request", "refusal");
+    if (res.stop === "truncated") {
       lastError = new AiError("Response was cut off", "truncated");
       continue;
     }
-    const parsed = schema.safeParse(res.parsed_output);
+    const parsed = schema.safeParse(res.raw);
     if (parsed.success) return { data: parsed.data, usage: total };
     lastError = new AiError("Response did not match the schema", "invalid_output");
   }
@@ -126,20 +116,20 @@ function normalizeText(raw: z.infer<typeof ModelText>, closingText: string): Lis
   });
 }
 
-export async function analyze(client: Anthropic, input: z.input<typeof AnalyzeRequest>, opts: AiOptions = {}): Promise<AiResponse<AnalyzeResult>> {
+export async function analyze(llm: LlmClient, input: z.input<typeof AnalyzeRequest>): Promise<AiResponse<AnalyzeResult>> {
   const req = AnalyzeRequest.parse(input);
-  const content: Anthropic.ContentBlockParam[] = [];
+  const content: Part[] = [];
   req.photos.forEach((p, i) => {
     content.push({ type: "text", text: `Photo ${i + 1}:` });
-    content.push({ type: "image", source: { type: "base64", media_type: p.mediaType, data: p.data } });
+    content.push({ type: "image", mediaType: p.mediaType, data: p.data });
   });
   content.push({ type: "text", text: analyzeUserText(req.style, req.categoryOptions) });
-  const { data, usage } = await callStructured(client, ModelAnalyze, {
-    model: opts.model ?? DEFAULT_MODEL,
-    max_tokens: 8000,
+  const { data, usage } = await callStructured(llm, ModelAnalyze, {
+    name: "listing",
+    maxTokens: 8000,
     effort: "medium",
     system: ANALYZE_SYSTEM,
-    messages: [{ role: "user", content }],
+    content,
   });
   const result = AnalyzeResult.parse({
     attributes: normalizeAttributes(data.attributes),
@@ -148,44 +138,40 @@ export async function analyze(client: Anthropic, input: z.input<typeof AnalyzeRe
   return { result, usage };
 }
 
-export async function rewrite(client: Anthropic, input: z.input<typeof RewriteRequest>, opts: AiOptions = {}): Promise<AiResponse<ListingText>> {
+export async function rewrite(llm: LlmClient, input: z.input<typeof RewriteRequest>): Promise<AiResponse<ListingText>> {
   const req = RewriteRequest.parse(input);
-  const { data, usage } = await callStructured(client, ModelText, {
-    model: opts.model ?? DEFAULT_MODEL,
-    max_tokens: 4000,
+  const { data, usage } = await callStructured(llm, ModelText, {
+    name: "listing_text",
+    maxTokens: 4000,
     effort: "low",
     system: REWRITE_SYSTEM,
-    messages: [{ role: "user", content: rewriteUserText(req.attributes, req.style) }],
+    content: [{ type: "text", text: rewriteUserText(req.attributes, req.style) }],
   });
   return { result: normalizeText(data, req.style.closingText), usage };
 }
 
-export async function choose(client: Anthropic, input: z.input<typeof ChooseRequest>, opts: AiOptions = {}): Promise<AiResponse<ChooseResult>> {
+export async function choose(llm: LlmClient, input: z.input<typeof ChooseRequest>): Promise<AiResponse<ChooseResult>> {
   const req = ChooseRequest.parse(input);
-  const { data, usage } = await callStructured(client, ModelChoice, {
-    model: opts.model ?? DEFAULT_MODEL,
-    max_tokens: 2000,
+  const { data, usage } = await callStructured(llm, ModelChoice, {
+    name: "choice",
+    maxTokens: 2000,
     effort: "low",
     system: CHOOSE_SYSTEM,
-    messages: [{ role: "user", content: chooseUserText(req) }],
+    content: [{ type: "text", text: chooseUserText(req) }],
   });
   // Only accept an option that really exists.
   const choice = data.choice !== null && req.options.includes(data.choice) ? data.choice : null;
   return { result: ChooseResult.parse({ choice }), usage };
 }
 
-export async function pickElement(
-  client: Anthropic,
-  input: z.input<typeof PickElementRequest>,
-  opts: AiOptions = {},
-): Promise<AiResponse<PickElementResult>> {
+export async function pickElement(llm: LlmClient, input: z.input<typeof PickElementRequest>): Promise<AiResponse<PickElementResult>> {
   const req = PickElementRequest.parse(input);
-  const { data, usage } = await callStructured(client, ModelPick, {
-    model: opts.model ?? DEFAULT_MODEL,
-    max_tokens: 2000,
+  const { data, usage } = await callStructured(llm, ModelPick, {
+    name: "element",
+    maxTokens: 2000,
     effort: "low",
     system: PICK_SYSTEM,
-    messages: [{ role: "user", content: pickUserText(req.goal, req.elements) }],
+    content: [{ type: "text", text: pickUserText(req.goal, req.elements) }],
   });
   const id = data.id !== null && req.elements.some((e) => e.id === data.id) ? data.id : null;
   return { result: PickElementResult.parse({ id }), usage };

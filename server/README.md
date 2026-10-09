@@ -1,6 +1,6 @@
 # @thrift/server — optional own server
 
-A small [Hono](https://hono.dev) app for the extension's **"Eigener Server"** mode. It holds the Anthropic API key, so the computer and the iPhone don't need one. It also serves the form map (for hot fixes), a remote kill switch, and monthly usage counts for all devices.
+A small [Hono](https://hono.dev) app for the extension's **"Eigener Server"** mode. It holds the OpenRouter key, so the computer and the iPhone don't need one. It also serves the form map (for hot fixes), a remote kill switch, and monthly usage counts for all devices.
 
 The extension works without it ("Eigener API-Key" mode). Add the server only when you want it.
 
@@ -34,10 +34,12 @@ CORS only allows `chrome-extension://…` and `safari-web-extension://…` origi
 
 | Variable | Required | Default | Notes |
 | --- | --- | --- | --- |
-| `ANTHROPIC_API_KEY` | yes | | |
+| `OPENROUTER_API_KEY` | yes* | | Used for both models. |
+| `ANTHROPIC_API_KEY` | * | | Only if you don't use OpenRouter (then both jobs use `MODEL`). *One of the two keys is required. |
 | `THRIFT_TOKENS` | yes | | Comma-separated, one per device, each at least 24 chars. The position in the list is the device id for usage counts, so add new tokens at the end. |
 | `AUTOFILL_ENABLED` | no | `true` | Kill switch. With `false`, the extensions stop filling. |
-| `MODEL` | no | shared `DEFAULT_MODEL` | |
+| `MODEL` | no | `anthropic/claude-haiku-5.5` | Photos & text. |
+| `NAV_MODEL` | no | `typesafe/jev-router` | Choosing options and finding fields. |
 | `FORM_MAP_PATH` | no | built-in map | A JSON file validated against the shared `FormMap` schema. Put it in `data/` and use `/app/data/form-map.json`. |
 | `PORT` | no | `8787` | |
 | `DOMAIN` | compose only | | Used by Caddy. |
@@ -50,7 +52,7 @@ The server exits at startup with a clear message if anything is missing or inval
 ```sh
 pnpm install                              # at the repo root
 cd server
-ANTHROPIC_API_KEY=sk-ant-... THRIFT_TOKENS=$(openssl rand -hex 24) pnpm dev
+OPENROUTER_API_KEY=sk-or-... THRIFT_TOKENS=$(openssl rand -hex 24) pnpm dev
 pnpm test && pnpm typecheck && pnpm build # build writes the self-contained bundle dist/main.js
 ```
 
@@ -99,7 +101,7 @@ git clone <this repo> thrift_shop_publisher
 cd thrift_shop_publisher/server
 cp .env.example .env
 openssl rand -hex 24      # run once per device (computer, iPhone) and put the results in THRIFT_TOKENS
-nano .env                 # set DOMAIN, ANTHROPIC_API_KEY, THRIFT_TOKENS
+nano .env                 # set DOMAIN, OPENROUTER_API_KEY, THRIFT_TOKENS
 mkdir -p data && sudo chown 1000:1000 data   # the container runs as the non-root user "node" (uid 1000)
 docker compose up -d --build
 docker compose logs -f    # look for "listening on :8787" and Caddy obtaining the certificate
@@ -137,6 +139,6 @@ On each device, open the extension settings (on the iPhone, in the container app
 2. Enter the server URL, e.g. `https://myshop.duckdns.org`, and **that device's** token.
 3. Tap **"Verbindung testen"**. It calls `/v1/config`.
 
-No Anthropic key is stored on the device in this mode.
+No OpenRouter key is stored on the device in this mode.
 
 To switch filling off everywhere, set `AUTOFILL_ENABLED=false` and run `docker compose up -d`. To lock out a lost device, remove its token. That shifts the device ids of the tokens after it in the usage counts.

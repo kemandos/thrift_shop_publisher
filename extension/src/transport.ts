@@ -1,11 +1,12 @@
-import Anthropic from "@anthropic-ai/sdk";
 import {
   analyze,
   API_PATHS,
   choose,
   DEFAULT_FORM_MAP,
   FormMap,
+  openRouterLlm,
   pickElement,
+  type LlmClient,
   rewrite,
   ServerConfig,
   Usage,
@@ -32,27 +33,44 @@ export interface Transport {
   test(): Promise<void>;
 }
 
-/** Direct mode: the user's own Anthropic key, called from the background worker. */
-export function directTransport(apiKey: string, makeClient = defaultClient): Transport {
-  if (!apiKey.trim()) throw new TransportError("Kein API-Key gespeichert", "no_key");
-  const client = makeClient(apiKey.trim());
-  const ops = { analyze, rewrite, choose, pickElement } as const;
+export const OPENROUTER_KEY_URL = "https://openrouter.ai/api/v1/key";
+
+/** Default mode: the user's own OpenRouter key, called from the background worker. */
+export function openRouterTransport(
+  apiKey: string,
+  models: { model: string; navModel: string },
+  fetchFn: typeof fetch = (...a) => fetch(...a),
+): Transport {
+  const key = apiKey.trim();
+  if (!key) throw new TransportError("Kein OpenRouter-Key gespeichert", "no_key");
+  const text = openRouterLlm({ apiKey: key, model: models.model, fetch: fetchFn });
+  const nav = openRouterLlm({ apiKey: key, model: models.navModel, fetch: fetchFn });
+  // Photos and text go to the text model; option choosing and element finding to the navigation model.
+  const ops = {
+    analyze: [analyze, text],
+    rewrite: [rewrite, text],
+    choose: [choose, nav],
+    pickElement: [pickElement, nav],
+  } as const;
   return {
     async call(op, payload) {
-      const fn = ops[op] as (c: Anthropic, p: unknown) => Promise<AiResponse<never>>;
-      return fn(client, payload);
+      const [fn, llm] = ops[op] as unknown as [(l: LlmClient, p: unknown) => Promise<AiResponse<never>>, LlmClient];
+      return fn(llm, payload);
     },
     async formMap() {
       return DEFAULT_FORM_MAP;
     },
     async test() {
-      await client.models.list({ limit: 1 });
+      let res: globalThis.Response;
+      try {
+        res = await fetchFn(OPENROUTER_KEY_URL, { headers: { Authorization: `Bearer ${key}` } });
+      } catch {
+        throw new TransportError("OpenRouter nicht erreichbar", "network");
+      }
+      if (res.status === 401) throw new TransportError("OpenRouter-Key ungültig", "unauthorized");
+      if (!res.ok) throw new TransportError(`OpenRouter-Fehler ${res.status}`, "server");
     },
   };
-}
-
-function defaultClient(apiKey: string): Anthropic {
-  return new Anthropic({ apiKey, dangerouslyAllowBrowser: true, maxRetries: 2 });
 }
 
 const OP_PATH: Record<AiOp, string> = {
@@ -62,7 +80,7 @@ const OP_PATH: Record<AiOp, string> = {
   pickElement: API_PATHS.pickElement,
 };
 
-/** Server mode: the owner's own server holds the Anthropic key. */
+/** Server mode: the owner's own server holds the OpenRouter key. */
 export function serverTransport(baseUrl: string, token: string, fetchFn: typeof fetch = fetch): Transport {
   const base = baseUrl.trim().replace(/\/+$/, "");
   if (!/^https?:\/\//.test(base)) throw new TransportError("Server-URL fehlt oder ist ungültig", "no_server");
@@ -117,5 +135,5 @@ export function serverTransport(baseUrl: string, token: string, fetchFn: typeof 
 }
 
 export function transportFor(s: Settings): Transport {
-  return s.mode === "server" ? serverTransport(s.serverUrl, s.serverToken) : directTransport(s.apiKey);
+  return s.mode === "server" ? serverTransport(s.serverUrl, s.serverToken) : openRouterTransport(s.apiKey, s);
 }

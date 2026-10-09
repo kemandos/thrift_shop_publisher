@@ -24,5 +24,5 @@ The app SHALL show a short, illustrated guide to enable the extension, allow it 
 The app SHALL offer the extension's settings (AI mode, key or server, language, tone, closing text) and share them with the Safari extension on the same device.
 
 #### Scenario: Key set in the app
-- **WHEN** the user saves an API key in the app
+- **WHEN** the user saves an OpenRouter key in the app
 - **THEN** the Safari extension uses it without entering it again

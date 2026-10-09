@@ -1,24 +1,30 @@
 import { join } from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
 import { serve } from "@hono/node-server";
+import { anthropicLlm, openRouterLlm } from "@thrift/shared";
 import { createApp } from "./app";
 import { ConfigError, loadConfig } from "./config";
 import { FileUsageStore } from "./usage";
 
 function start() {
   const config = loadConfig(process.env);
+  const anthropic = config.provider === "anthropic" ? new Anthropic({ apiKey: config.apiKey }) : null;
+  const llmFor = (model: string) =>
+    anthropic
+      ? anthropicLlm(anthropic, model)
+      : openRouterLlm({ apiKey: config.apiKey, model, appName: "Thrift (server)" });
   const app = createApp({
-    anthropic: new Anthropic({ apiKey: config.anthropicApiKey }),
+    llm: llmFor(config.model),
+    navLlm: llmFor(config.navModel),
     tokens: config.tokens,
     autofillEnabled: config.autofillEnabled,
-    model: config.model,
     formMap: config.formMap,
     usageStore: new FileUsageStore(join(config.dataDir, "usage.json")),
   });
 
   const server = serve({ fetch: app.fetch, port: config.port }, (info) => {
     console.log(
-      `[server] listening on :${info.port} · model ${config.model} · ${config.tokens.length} token(s) · ` +
+      `[server] listening on :${info.port} · ${config.provider} ${config.model} (nav ${config.navModel}) · ${config.tokens.length} token(s) · ` +
         `autofill ${config.autofillEnabled ? "on" : "OFF"} · form map ${config.formMap.version}`,
     );
   });

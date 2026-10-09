@@ -136,6 +136,8 @@ export type PickElementResult = z.infer<typeof PickElementResult>;
 export const Usage = z.object({
   inputTokens: z.number().int().nonnegative(),
   outputTokens: z.number().int().nonnegative(),
+  /** Exact cost reported by the provider (OpenRouter), if any. */
+  costUsd: z.number().nonnegative().optional(),
 });
 export type Usage = z.infer<typeof Usage>;
 

@@ -4,13 +4,29 @@ import { DEFAULT_SETTINGS, loadLocalSettings, maskSecret, mergeSettings, saveSet
 describe("settings", () => {
   beforeEach(() => fakeBrowser.reset());
 
-  it("defaults to direct mode, Deutsch, Freundlich, notice not accepted", () => {
-    expect(DEFAULT_SETTINGS).toMatchObject({ mode: "direct", language: "de", tone: "freundlich", noticeAccepted: false });
+  it("defaults to OpenRouter with Claude Haiku 5.5, Deutsch, Freundlich, notice not accepted", () => {
+    expect(DEFAULT_SETTINGS).toMatchObject({
+      mode: "openrouter",
+      model: "anthropic/claude-haiku-5.5",
+      navModel: "typesafe/jev-router",
+      language: "de",
+      tone: "freundlich",
+      noticeAccepted: false,
+    });
+  });
+
+  it("only allows Haiku and Jev; anything else falls back to the default", () => {
+    expect(mergeSettings({ model: "typesafe/jev-router", navModel: "anthropic/claude-haiku-5.5" }, {})).toMatchObject({
+      model: "typesafe/jev-router",
+      navModel: "anthropic/claude-haiku-5.5",
+    });
+    expect(mergeSettings({ model: "qwen/qwen3.7-flash" as never }, {}).model).toBe("anthropic/claude-haiku-5.5");
+    expect(mergeSettings({ mode: "direct" as never, apiKey: "k" }, {})).toMatchObject({ mode: "openrouter", apiKey: "k" });
   });
 
   it("native (iPhone app) values win over empty local values", () => {
-    const s = mergeSettings({ apiKey: "", language: "de" }, { apiKey: "sk-ant-native", language: "en" });
-    expect(s.apiKey).toBe("sk-ant-native");
+    const s = mergeSettings({ apiKey: "", language: "de" }, { apiKey: "sk-or-native", language: "en" });
+    expect(s.apiKey).toBe("sk-or-native");
     expect(s.language).toBe("en");
   });
 
@@ -20,14 +36,14 @@ describe("settings", () => {
   });
 
   it("persists only locally and round-trips", async () => {
-    await saveSettings({ apiKey: "sk-ant-123456", tone: "locker" });
+    await saveSettings({ apiKey: "sk-or-123456", tone: "locker" });
     const local = await loadLocalSettings();
-    expect(local.apiKey).toBe("sk-ant-123456");
+    expect(local.apiKey).toBe("sk-or-123456");
     expect(local.tone).toBe("locker");
   });
 
   it("masks secrets to the last 4 characters", () => {
-    expect(maskSecret("sk-ant-abcdef3fA9")).toBe("••••••••3fA9");
+    expect(maskSecret("sk-or-abcdef3fA9")).toBe("••••••••3fA9");
     expect(maskSecret("")).toBe("");
   });
 

@@ -1,12 +1,16 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { DEFAULT_FORM_MAP, DEFAULT_MODEL, FormMap } from "@thrift/shared";
+import { DEFAULT_ANTHROPIC_MODEL, DEFAULT_FORM_MAP, DEFAULT_NAV_MODEL, DEFAULT_OPENROUTER_MODEL, FormMap } from "@thrift/shared";
 
 export interface ServerEnvConfig {
-  anthropicApiKey: string;
+  /** OpenRouter is used when OPENROUTER_API_KEY is set; otherwise Anthropic directly. */
+  provider: "openrouter" | "anthropic";
+  apiKey: string;
   tokens: string[];
   autofillEnabled: boolean;
   model: string;
+  /** Model for option choosing / element finding (OpenRouter: Jev Router; Anthropic: same as model). */
+  navModel: string;
   formMap: FormMap;
   port: number;
   dataDir: string;
@@ -26,8 +30,10 @@ function parseBool(name: string, raw: string | undefined, fallback: boolean): bo
 
 /** Reads and validates the environment. Throws ConfigError with a readable message. */
 export function loadConfig(env: NodeJS.ProcessEnv): ServerEnvConfig {
-  const anthropicApiKey = env.ANTHROPIC_API_KEY?.trim();
-  if (!anthropicApiKey) throw new ConfigError("ANTHROPIC_API_KEY is not set");
+  const openrouterKey = env.OPENROUTER_API_KEY?.trim();
+  const anthropicKey = env.ANTHROPIC_API_KEY?.trim();
+  if (!openrouterKey && !anthropicKey) throw new ConfigError("OPENROUTER_API_KEY (or ANTHROPIC_API_KEY) is not set");
+  const provider = openrouterKey ? "openrouter" : "anthropic";
 
   const tokens = (env.THRIFT_TOKENS ?? "").split(",").map((t) => t.trim()).filter(Boolean);
   if (tokens.length === 0) throw new ConfigError("THRIFT_TOKENS is not set (comma-separated, one per device)");
@@ -52,14 +58,18 @@ export function loadConfig(env: NodeJS.ProcessEnv): ServerEnvConfig {
     formMap = parsed.data;
   }
 
+  const model = env.MODEL?.trim() || (provider === "openrouter" ? DEFAULT_OPENROUTER_MODEL : DEFAULT_ANTHROPIC_MODEL);
+
   const port = Number(env.PORT ?? 8787);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new ConfigError(`PORT is invalid ("${env.PORT}")`);
 
   return {
-    anthropicApiKey,
+    provider,
+    apiKey: (openrouterKey || anthropicKey)!,
     tokens,
     autofillEnabled: parseBool("AUTOFILL_ENABLED", env.AUTOFILL_ENABLED, true),
-    model: env.MODEL?.trim() || DEFAULT_MODEL,
+    model,
+    navModel: env.NAV_MODEL?.trim() || (provider === "openrouter" ? DEFAULT_NAV_MODEL : model),
     formMap,
     port,
     dataDir: resolve(env.DATA_DIR?.trim() || "./data"),

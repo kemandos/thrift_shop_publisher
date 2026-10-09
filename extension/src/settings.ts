@@ -1,10 +1,18 @@
 import { browser } from "wxt/browser";
 import { z } from "zod";
-import { Language, Tone, type ListingStyle } from "@thrift/shared";
+import { DEFAULT_NAV_MODEL, DEFAULT_OPENROUTER_MODEL, HAIKU_MODEL, JEV_MODEL, Language, Tone, type ListingStyle } from "@thrift/shared";
+
+const Model = z.enum([HAIKU_MODEL, JEV_MODEL]);
 
 export const Settings = z.object({
-  mode: z.enum(["direct", "server"]).default("direct"),
+  /** "openrouter": own OpenRouter key (default). "server": optional own server holds the key. */
+  mode: z.enum(["openrouter", "server"]).catch("openrouter"),
+  /** OpenRouter API key (sk-or-…). */
   apiKey: z.string().default(""),
+  /** Model for photos → listing text (Claude Haiku 5.5 by default). */
+  model: Model.catch(DEFAULT_OPENROUTER_MODEL),
+  /** Model for clicking/navigation: picker options and element finding (Jev Router by default). */
+  navModel: Model.catch(DEFAULT_NAV_MODEL),
   serverUrl: z.string().default(""),
   serverToken: z.string().default(""),
   language: Language.default("de"),
@@ -23,6 +31,8 @@ const KEY = "settings";
 const NATIVE_KEYS = [
   "mode",
   "apiKey",
+  "model",
+  "navModel",
   "serverUrl",
   "serverToken",
   "language",
