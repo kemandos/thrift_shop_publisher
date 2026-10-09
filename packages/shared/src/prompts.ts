@@ -91,7 +91,7 @@ export function chooseUserText(req: ChooseRequest): string {
       ? ""
       : req.mode === "suggestions"
         ? "\nThese are Vinted's own category suggestions, each as 'name — path'. Pick one only if it really fits this item: same department (Damen/Herren/Kinder/…) and the same kind of garment (a skirt is not shorts). Otherwise answer null."
-        : "\nThis is one level of Vinted's category tree. Classify the item: pick the option that fits it best (department first: Damen/Herren/Kinder/…, then the closest sub-category). Never answer null here unless no option has anything to do with clothing or the item.";
+        : "\nThis is one level of Vinted's category tree. Classify the item: pick the option that fits it best (department first: Damen/Herren/Kinder/…, then the closest sub-category). Prefer a specific option (e.g. 'Shorts mit hoher Taille', 'Jeansshorts') over 'Sonstiges'/'Andere' whenever the photos or facts support it. Never answer null here unless no option has anything to do with clothing or the item.";
   return `Field: ${req.field === "other" ? `other (${req.fieldLabel ?? "?"})` : req.field}${path}${rule}\nFacts (JSON):\n${JSON.stringify(req.attributes)}\n\nOptions:\n${req.options
     .map((o) => `- ${o}`)
     .join("\n")}`;

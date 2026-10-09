@@ -88,6 +88,13 @@ Brand, size, condition, colour, material and category-specific extra fields (e.g
 - **WHEN** the category is "Miniröcke" and Vinted shows "Rocklänge"
 - **THEN** "Mini" is selected without an extra AI call
 
+### Requirement: Size through Vinted's size tabs
+When the size picker has system tabs (S/M/L, EU, FR, IT, UK, US), the extension SHALL open the tab that matches the label's system and then select the exact size; tabs are never chosen as a size. Spanish sizes map to the FR tab; systems without a tab are skipped; letter sizes use S/M/L.
+
+#### Scenario: Spanish label
+- **WHEN** the label says "ESP 42 / POR 40"
+- **THEN** the extension opens the FR tab and selects 42
+
 ### Requirement: Brand only with an exact match
 If Vinted does not detect the brand, the extension SHALL type it into the brand search and select it only when an option matches the name exactly; otherwise the brand is offered as a copy value.
 
@@ -104,7 +111,11 @@ A field SHALL only count as filled when the form shows the chosen value. Clicks 
 
 #### Scenario: Retry inside the option
 - **WHEN** a click on an option does not make the field show it
-- **THEN** the extension tries the radio/checkbox, label, role element and text element inside it, reopening the picker once if it closed; multi-select pickers get a single click only
+- **THEN** the extension tries, in this order, the radio/checkbox, the inner role element or button, the label, the row and the text element, reopening the picker once if it closed; in multi-select pickers a further click happens only while the row is still unticked
+
+#### Scenario: Option rendered as a link
+- **WHEN** a picker option is a link (Vinted's brand list)
+- **THEN** it may be clicked inside the open picker, but its navigation is suppressed so the page is never left; help rows ("Infos zu …", "Suche …") are never options
 
 #### Scenario: Size tile ignores the click on its box
 - **WHEN** the size grid only reacts to a click on the text inside a tile

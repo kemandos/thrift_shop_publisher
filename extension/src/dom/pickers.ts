@@ -15,7 +15,8 @@ const OPTION_SELECTOR =
   "[role=button], [role=link], li, label, button, a, [data-testid*='option'], [data-testid*='item'], [tabindex]:not([tabindex='-1'])";
 
 /** Helper links inside pickers that are never an option ("Größentabelle", "Erfahre mehr", …). */
-const HELP_LINKS = /^(grossentabelle|großentabelle|erfahre mehr|mehr erfahren|hilfe|size guide|learn more|mehr anzeigen|show more)$/;
+const HELP_LINKS =
+  /^(infos? zu|gro(ss|ß)entabelle|erfahre mehr|mehr erfahren|mehr anzeigen|hilfe|size guide|learn more|show more|suche\b|search for)/;
 
 function lines(el: Element): string[] {
   const raw = (el as HTMLElement).innerText ?? el.textContent ?? "";

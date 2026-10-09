@@ -215,18 +215,18 @@ async function waitUntil(check: () => boolean, timeoutMs: number): Promise<boole
 }
 
 /**
- * What to click for an option, most likely first: the row itself, a native radio/checkbox inside,
- * its label, an inner element with a role, the innermost element carrying the text.
+ * What to click for an option, most likely first (from vinted.de logs): a native radio/checkbox inside,
+ * an inner element with a role or a button, a label, the row itself, the innermost element with the text.
  */
 function clickTargets(row: Element, label: string): Element[] {
   const out: Element[] = [];
   const push = (e: Element | null | undefined) => {
     if (e && !out.includes(e)) out.push(e);
   };
-  push(row);
   push(row.querySelector("input[type=radio], input[type=checkbox]"));
-  push(row.querySelector("label") ?? row.closest("label"));
   push(row.querySelector("[role=option], [role=radio], [role=checkbox], [role=button], button"));
+  push(row.querySelector("label") ?? row.closest("label"));
+  push(row);
   const want = norm(label);
   push(
     Array.from(row.querySelectorAll("*"))
@@ -234,6 +234,79 @@ function clickTargets(row: Element, label: string): Element[] {
       .find((e) => norm(e.textContent) === want),
   );
   return out;
+}
+
+/** Size-system tabs in Vinted's size picker ("S/M/L", "EU", "UK", "FR", "IT", "US"): never a size. */
+export const SIZE_TAB = /^(s\/m\/l|eu|uk|fr|it|us|de|int)$/i;
+
+const SYSTEM_TAB: Record<string, string> = {
+  eu: "EU", de: "EU", d: "EU",
+  // Spanish women's sizes equal French ones.
+  fr: "FR", f: "FR", es: "FR", esp: "FR", e: "FR",
+  it: "IT", i: "IT",
+  uk: "UK", gb: "UK",
+  us: "US", usa: "US",
+};
+
+/**
+ * Size label → (tab, value) pairs to try, e.g. "ESP 42 / POR 40" → FR 42; "EU 38" → EU 38;
+ * "M" → S/M/L M; a bare "38" → EU 38. Systems Vinted has no tab for (POR) are skipped.
+ */
+export function sizeCandidates(size: string): Array<{ tab: string; value: string }> {
+  const out: Array<{ tab: string; value: string }> = [];
+  for (const m of size.matchAll(/(?:^|[^\p{L}])(EU|DE|D|FR|F|ES|ESP|E|IT|I|UK|GB|US|USA|PT|POR)\s*[:.]?\s*(\d{1,3}(?:[.,]5)?)(?!\d)/giu)) {
+    const tab = SYSTEM_TAB[m[1]!.toLowerCase()];
+    if (tab) out.push({ tab, value: m[2]!.replace(",", ".") });
+  }
+  const letter = size.match(/(?:^|[^\p{L}])(XXXS|XXS|XS|S|M|L|XL|XXL|XXXL|[2-9]XL)(?![\p{L}\p{N}])/iu);
+  if (letter) out.push({ tab: "S/M/L", value: letter[1]!.toUpperCase() });
+  if (!out.length) {
+    const n = size.match(/^\s*(\d{2,3})\s*$/);
+    if (n) out.push({ tab: "EU", value: n[1]! });
+  }
+  const order = ["EU", "FR", "IT", "UK", "US", "S/M/L"];
+  return out.sort((a, b) => order.indexOf(a.tab) - order.indexOf(b.tab));
+}
+
+/** Size in a picker with system tabs: open the right tab, then the exact size. */
+async function sizeBySystem(ctx: FillContext, session: PickerSession, trigger: Element, size: string): Promise<string | null> {
+  const tabsShown = session.scan().filter((o) => SIZE_TAB.test(o.label.trim()));
+  if (!tabsShown.length) return null;
+  for (const cand of sizeCandidates(size)) {
+    const tab = session.scan().find((o) => norm(o.label) === norm(cand.tab));
+    if (!tab) continue;
+    ctx.log?.(`size: Reiter „${tab.label}“ für ${cand.value}`);
+    await humanClick(tab.el, ctx.map.forbiddenClickText, ctx.pace, { allowLinks: true });
+    await ctx.pace.step();
+    const want = norm(cand.value);
+    const opt = await waitUntilValue(() => session.scan().find((o) => !SIZE_TAB.test(o.label.trim()) && norm(o.label) === want), 1500);
+    if (!opt) {
+      ctx.log?.(`size: ${cand.value} im Reiter „${tab.label}“ nicht gefunden`);
+      continue;
+    }
+    const re = new RegExp(`(^|[^\\p{L}\\p{N}])${cand.value.replace(".", "\\.")}([^\\p{L}\\p{N}]|$)`, "iu");
+    if (await selectOption(ctx, "size", opt, () => re.test(displayedValue(trigger)))) return opt.label;
+  }
+  return null;
+}
+
+async function waitUntilValue<T>(get: () => T | undefined, timeoutMs: number): Promise<T | undefined> {
+  const end = Date.now() + timeoutMs;
+  while (Date.now() < end) {
+    const v = get();
+    if (v) return v;
+    await new Promise((r) => setTimeout(r, 60));
+  }
+  return get();
+}
+
+/** A multi-select row is ticked (checkbox checked or aria state set). */
+function rowChecked(row: Element): boolean {
+  const box = row.querySelector<HTMLInputElement>("input[type=checkbox], input[type=radio]");
+  if (box?.checked) return true;
+  return [row, ...Array.from(row.querySelectorAll("[aria-checked], [aria-selected]"))].some(
+    (e) => e.getAttribute("aria-checked") === "true" || e.getAttribute("aria-selected") === "true",
+  );
 }
 
 /**
@@ -252,7 +325,8 @@ async function selectOption(
   for (const t of clickTargets(pick.el, pick.label).slice(skip, skip + maxTargets)) {
     if (!t.isConnected) break;
     try {
-      await humanClick(t, forbidden, ctx.pace);
+      // Options inside the open picker may be links (brands): clickable, navigation suppressed.
+      await humanClick(t, forbidden, ctx.pace, { allowLinks: true });
     } catch (e) {
       ctx.log?.(`${key}: Klick auf ${describe(t)} abgelehnt (${e instanceof Error ? e.message : String(e)})`);
       continue;
@@ -288,6 +362,18 @@ async function fillList(ctx: FillContext, key: ChooseField, attrs: Attributes, w
           ctx.log?.(`${key}: Suche „${want}“: ${optionList(options)}`);
         }
       }
+      if (key === "size" && want && round === 0) {
+        const bySystem = await sizeBySystem(ctx, session, trigger, want);
+        if (bySystem) {
+          ctx.log?.(`size: „${bySystem}“ übernommen, Feld zeigt „${displayedValue(trigger)}“`);
+          await closeIfOpen(ctx, session);
+          chosen = { el: trigger, label: bySystem, detail: "" };
+          return "ok" as const;
+        }
+        options = session.scan().length ? session.scan() : options;
+      }
+      // Tabs (EU, FR, …) are never a size.
+      if (key === "size") options = options.filter((o) => !SIZE_TAB.test(o.label.trim()));
       const pick = chosen
         ? (options.find((o) => o.label === chosen!.label && o.detail === chosen!.detail) ?? null)
         : await chooseOption(ctx, key, attrs, options, want);
@@ -299,10 +385,14 @@ async function fillList(ctx: FillContext, key: ChooseField, attrs: Attributes, w
       chosen = pick;
       await ctx.pace.step(); // a person looks before clicking
       const confirmed = () => valueShown(trigger, pick.label);
-      // Multi-select (colour): one click only – a second click would unselect it again.
-      const multi = key === "color";
-      if (multi && round > 0) return "none" as const;
-      let ok = await selectOption(ctx, key, pick, confirmed, round, multi ? 1 : 5);
+      // Multi-select (colour, material): a further click only while the row is still not ticked,
+      // so a working click is never undone by a second one.
+      const multi = key === "color" || key === "material";
+      ctx.log?.(`${key}: wähle „${pick.label}“`);
+      let ok =
+        multi && rowChecked(pick.el)
+          ? true
+          : await selectOption(ctx, key, pick, multi ? () => confirmed() || rowChecked(pick.el) : confirmed, round);
       // Multi-select pickers (colour) stay open; some only update the field when closed.
       if (pick.el.isConnected && isVisible(pick.el)) {
         await closePicker(trigger, ctx.doc);

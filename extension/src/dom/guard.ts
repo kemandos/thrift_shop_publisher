@@ -35,8 +35,12 @@ function hasWord(haystack: string, words: string[]): string | null {
   return null;
 }
 
-/** True for anything that could publish, save, delete or leave the page. */
-export function forbiddenReason(el: Element, mapWords: readonly string[] = []): string | null {
+/**
+ * True for anything that could publish, save, delete or leave the page. `allowLinks` is only used for
+ * options inside an open picker (Vinted renders brands as links): the click then has its navigation
+ * suppressed (see humanClick), so the page is never left; the word check still applies.
+ */
+export function forbiddenReason(el: Element, mapWords: readonly string[] = [], opts: { allowLinks?: boolean } = {}): string | null {
   const words = forbiddenWords(mapWords);
   const control = (el.closest(CONTROL) ?? el) as HTMLElement;
   for (const node of new Set([el as HTMLElement, control])) {
@@ -44,7 +48,7 @@ export function forbiddenReason(el: Element, mapWords: readonly string[] = []): 
     if ((node.tagName === "BUTTON" || node.tagName === "INPUT") && (type === "submit" || type === "image")) {
       return "submit control";
     }
-    if (node.tagName === "A") {
+    if (node.tagName === "A" && !opts.allowLinks) {
       const href = node.getAttribute("href") ?? "";
       if (href && !href.startsWith("#") && !href.startsWith("javascript:")) return "link leaves the page";
     }
@@ -64,8 +68,8 @@ export function forbiddenReason(el: Element, mapWords: readonly string[] = []): 
   return null;
 }
 
-export function isForbidden(el: Element, mapWords: readonly string[] = []): boolean {
-  return forbiddenReason(el, mapWords) !== null;
+export function isForbidden(el: Element, mapWords: readonly string[] = [], opts: { allowLinks?: boolean } = {}): boolean {
+  return forbiddenReason(el, mapWords, opts) !== null;
 }
 
 /**
@@ -83,7 +87,8 @@ export function lockSubmission(doc: Document, mapWords: readonly string[] = []):
   const onSubmit = (e: Event) => block(e);
   const onClick = (e: Event) => {
     const t = e.target;
-    if (!e.isTrusted && t instanceof Element && isForbidden(t, mapWords)) block(e);
+    // Links are handled by humanClick (navigation suppressed); here only publish-like controls.
+    if (!e.isTrusted && t instanceof Element && isForbidden(t, mapWords, { allowLinks: true })) block(e);
   };
   const onKey = (e: KeyboardEvent) => {
     if (!e.isTrusted && e.key === "Enter") block(e);

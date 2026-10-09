@@ -34,8 +34,8 @@ export function isVisible(el: Element): boolean {
 export class ForbiddenClickError extends Error {}
 
 /** Throws if an element looks like a submit/upload/save control (see guard.ts). The extension never submits. */
-export function assertClickable(el: Element, forbidden: readonly string[]): void {
-  const reason = forbiddenReason(el, forbidden);
+export function assertClickable(el: Element, forbidden: readonly string[], opts: { allowLinks?: boolean } = {}): void {
+  const reason = forbiddenReason(el, forbidden, opts);
   if (reason) throw new ForbiddenClickError(reason);
 }
 
@@ -109,9 +109,29 @@ function pointerInit(el: Element): MouseEventInit & PointerEventInit {
  * A click the way a mouse produces it: hover, press, release, click, with short pauses and real
  * coordinates. Checked against the publish guard first, like every click.
  */
-export async function humanClick(el: Element, forbidden: readonly string[], pace: Pacer): Promise<void> {
-  assertClickable(el, forbidden);
+export async function humanClick(
+  el: Element,
+  forbidden: readonly string[],
+  pace: Pacer,
+  opts: { allowLinks?: boolean } = {},
+): Promise<void> {
+  assertClickable(el, forbidden, opts);
   const h = el as HTMLElement;
+  // A picker option rendered as a link: let the page's click handler run, but never navigate.
+  const link = opts.allowLinks ? el.closest("a[href]") : null;
+  const stopNav = (e: Event) => {
+    if (!e.isTrusted && e.type === "click") e.preventDefault();
+  };
+  if (link) el.ownerDocument.defaultView?.addEventListener("click", stopNav, true);
+  try {
+    await clickSequence(h, pace);
+  } finally {
+    if (link) el.ownerDocument.defaultView?.removeEventListener("click", stopNav, true);
+  }
+}
+
+async function clickSequence(h: HTMLElement, pace: Pacer): Promise<void> {
+  const el = h;
   h.scrollIntoView?.({ block: "nearest", inline: "nearest" });
   await pace.tap();
   const init = pointerInit(el);

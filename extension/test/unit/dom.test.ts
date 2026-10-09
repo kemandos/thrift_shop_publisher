@@ -2,7 +2,7 @@ import { DEFAULT_FORM_MAP } from "@thrift/shared";
 import { assertClickable, ForbiddenClickError, setNativeValue } from "@/src/dom/core";
 import { locateBy, locateField } from "@/src/dom/locate";
 import { matchOption, pathSegments, pickByPath } from "@/src/dom/pickers";
-import { hasValue, looksSet, sameKind } from "@/src/fill/fill";
+import { hasValue, looksSet, sameKind, sizeCandidates, SIZE_TAB } from "@/src/fill/fill";
 import { snapshotElements } from "@/src/dom/snapshot";
 import { forbiddenWords, isForbidden, lockSubmission } from "@/src/dom/guard";
 import { descriptionWithHashtags, suggestedPrice } from "@/src/fill/fill";
@@ -192,5 +192,21 @@ describe("category agreement (no AI call)", () => {
     expect(looksSet(document.getElementById("c"))).toBe(true);
     (document.getElementById("a") as HTMLInputElement).value = "Shorts mit hoher Taille";
     expect(looksSet(document.getElementById("a"))).toBe(true);
+  });
+});
+
+describe("size labels → Vinted size tabs", () => {
+  it("maps systems to tabs", () => {
+    expect(sizeCandidates("ESP 42 / POR 40")).toEqual([{ tab: "FR", value: "42" }]);
+    expect(sizeCandidates("EU 38")).toEqual([{ tab: "EU", value: "38" }]);
+    expect(sizeCandidates("M")).toEqual([{ tab: "S/M/L", value: "M" }]);
+    expect(sizeCandidates("38")).toEqual([{ tab: "EU", value: "38" }]);
+    expect(sizeCandidates("M / EU 38")).toEqual([{ tab: "EU", value: "38" }, { tab: "S/M/L", value: "M" }]);
+    expect(sizeCandidates("W30 L32")).toEqual([]);
+  });
+
+  it("recognises tabs, never as a size", () => {
+    for (const t of ["S/M/L", "EU", "UK", "FR", "IT", "US"]) expect(SIZE_TAB.test(t)).toBe(true);
+    for (const t of ["S", "M", "42", "XXL"]) expect(SIZE_TAB.test(t)).toBe(false);
   });
 });

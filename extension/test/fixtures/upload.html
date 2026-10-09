@@ -239,11 +239,24 @@
       });
     });
 
+    // Brand rows are links on vinted.de; a help row and a "Suche" row are mixed in.
     inputs.brand.addEventListener("click", () => {
       const panel = makePanel(inputs.brand);
       const search = mk("input"); search.placeholder = "Finde eine Marke"; panel.append(search);
-      const holder = mk("div"); panel.append(holder);
-      const render = (q) => { holder.replaceChildren(); for (const b of BRANDS.filter((b) => b.toLowerCase().includes(q.toLowerCase()))) holder.append(cell(b, "", () => choose("brand", b, b))); };
+      const holder = mk("ul"); panel.append(holder);
+      const render = (q) => {
+        holder.replaceChildren();
+        const help = mk("li"); const hb = mk("button", "", "Infos zu Größen und Entschädigungen"); hb.type = "button";
+        hb.addEventListener("click", () => { state.brandHelp = true; }); help.append(hb); holder.append(help);
+        for (const b of BRANDS.filter((b) => b.toLowerCase().includes(q.toLowerCase()))) {
+          const li = mk("li"); li.style.cursor = "pointer";
+          const a = mk("a"); a.href = "/brand/" + encodeURIComponent(b);
+          const bold = mk("b", "", b.toLowerCase()); a.append(bold);
+          a.addEventListener("click", () => choose("brand", b, b)); // no preventDefault: navigation must be stopped by Thrift
+          li.append(a); holder.append(li);
+        }
+        if (q) { const li = mk("li"); const sb = mk("button", "", `Suche "${q}"`); sb.type = "button"; li.append(sb); holder.append(li); }
+      };
       search.addEventListener("input", () => render(search.value));
       render("");
     });
@@ -258,30 +271,53 @@
     const table = mk("button", "", "Größentabelle"); table.type = "button";
     table.addEventListener("click", () => { state.sizeTable = true; });
     head.append(table);
+    // Size systems as tabs (S/M/L, EU, FR, …), each with its own chips.
+    const SYSTEMS = { "S/M/L": [...SIZES, "XXL", "XXXL", "4XL"], EU: ["34", "36", "38", "40", "42"], FR: ["36", "38", "40", "42", "44"], IT: ["40", "42", "44"] };
+    const tabBar = mk("div");
     const tiles = mk("div", "tiles");
-    for (const sz of [...SIZES, "XXL", "XXXL", "4XL"]) {
-      const tile = mk("div", "tile");
-      const txt = mk("span", "", sz);
-      txt.addEventListener("click", (e) => { e.stopPropagation(); state.size = sz; inputs.size.value = sz; sizeDd.classList.remove("open"); open = null; });
-      tile.append(txt);
-      tiles.append(tile);
+    const renderTiles = (sys) => {
+      tiles.replaceChildren();
+      for (const sz of SYSTEMS[sys]) {
+        const tile = mk("div", "tile");
+        const txt = mk("span", "", sz);
+        const label = sys === "S/M/L" ? sz : `${sys} ${sz}`;
+        txt.addEventListener("click", (e) => { e.stopPropagation(); state.size = label; inputs.size.value = label; sizeDd.classList.remove("open"); open = null; });
+        tile.append(txt);
+        tiles.append(tile);
+      }
+    };
+    for (const sys of Object.keys(SYSTEMS)) {
+      const tb = mk("button", "", sys); tb.type = "button";
+      tb.addEventListener("click", () => renderTiles(sys));
+      tabBar.append(tb);
     }
-    sizeDd.append(info, head, tiles);
+    renderTiles("S/M/L");
+    sizeDd.append(info, head, tabBar, tiles);
     inputs.size.after(sizeDd);
     inputs.size.addEventListener("click", () => {
       closeOpen();
       sizeDd.classList.add("open");
       open = { panel: { remove: () => sizeDd.classList.remove("open") } };
     });
+    // Condition and colour: like vinted.de, only the radio/checkbox inside the row reacts.
+    const inputRow = (title, sub, type, onChange) => {
+      const li = mk("li"); li.style.cursor = "pointer";
+      const t = mk("div", "", title); li.append(t);
+      if (sub) li.append(mk("div", "sub", sub));
+      const box = mk("input"); box.type = type; box.addEventListener("change", () => onChange(box)); li.append(box);
+      return li;
+    };
     inputs.condition.addEventListener("click", () => {
       const panel = makePanel(inputs.condition);
-      const hints = { "Sehr gut": "Wenig benutzt, kaum Gebrauchsspuren", Gut: "Benutzt, leichte Gebrauchsspuren" };
-      for (const c of CONDITIONS) panel.append(cell(c, hints[c] || "", () => choose("condition", c, c)));
+      const hints = { "Sehr gut": "Ein nur selten benutzter Artikel", Gut: "Ein benutzter Artikel" };
+      const ul = mk("ul"); panel.append(ul);
+      for (const c of CONDITIONS) ul.append(inputRow(c, hints[c] || "", "radio", () => choose("condition", c, c)));
     });
     inputs.color.addEventListener("click", () => {
       const panel = makePanel(inputs.color);
-      for (const c of COLORS) panel.append(cell(c, "", () => {
-        state.colors = state.colors.includes(c) ? state.colors.filter((x) => x !== c) : [...state.colors, c].slice(0, 2);
+      const ul = mk("ul"); panel.append(ul);
+      for (const c of COLORS) ul.append(inputRow(c, "", "checkbox", (box) => {
+        state.colors = box.checked ? [...state.colors, c].slice(0, 2) : state.colors.filter((x) => x !== c);
         inputs.color.value = state.colors.join(", ");
       }));
     });

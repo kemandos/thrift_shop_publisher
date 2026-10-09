@@ -182,6 +182,23 @@ test.describe("vinted.de structure (div rows, search, suggestions)", () => {
     );
   });
 
+  test("size from a foreign label goes through the right tab (ESP 42 → FR 42)", async ({ page }) => {
+    await open(page, "vinted");
+    await addPhotos(page, 1);
+    const { state, log } = await runFill(page, "label", { ...STUB_ATTRIBUTES, size: "ESP 42 / POR 40" });
+    expect(state.size).toBe("FR 42");
+    expect(log.join("\n")).toContain("size: Reiter „FR“ für 42");
+  });
+
+  test("brands rendered as links are selected without leaving the page; help rows are ignored", async ({ page }) => {
+    await open(page, "vinted");
+    await addPhotos(page, 1);
+    const { state } = await runFill(page);
+    expect(page.url()).toContain("/items/new");
+    expect(state.brand).toBe("COS");
+    expect(await page.evaluate(() => (window as any).__state.brandHelp)).toBeUndefined();
+  });
+
   test("brand without an exact match is left for the user (never a similar name)", async ({ page }) => {
     await open(page, "vinted");
     await addPhotos(page, 1);
