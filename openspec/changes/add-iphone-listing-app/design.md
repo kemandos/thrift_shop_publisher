@@ -131,28 +131,54 @@ Two more paths:
 - The handoff guide uses short looping screen recordings of the Vinted flow, recorded with Vinted's UI. These must be re-recorded if Vinted's UI changes.
 - FAQ content is a localized Markdown resource, so it can be updated without code changes.
 
-### D7b — Visual design rules (Liquid Glass, iOS 26/27)
+### D7b — Visual design: "Atelier" (chosen 2026-10-09)
 
-These rules come from the HIG (Materials, Color, Layout, Generative AI), NN/g and measured iOS 26 values. The mockups are on the design canvas, page "Liquid Glass (neu)".
+The look draws on the HIG (Materials, Color, Layout, Generative AI), NN/g, and premium fashion apps (COS, Arket, SSENSE, The RealReal). The mockups are on the design canvas, page "Atelier – Ablauf (klickbar)".
 
-**Glass and colour**
-- Glass is used only on the navigation layer: the floating tab bar, toolbar circles and sheets. Content, cards and list cells never use glass.
-- One tinted control per screen, which is the primary action. Everything else is monochrome.
-- The accent is system blue (#0088FF). Orange and violet are never used.
-- Photos provide the colour.
+**Palette**
 
-**Navigation and layout**
-- Large title (34 pt bold) and system inset-grouped lists: 26 pt corner radius, 52 pt rows, 16 pt margins, sentence-case section headers.
-- Floating tab bar: Entwürfe, Auf Vinted, Einstellungen. A separate prominent "+" opens the add-photos menu: Mediathek, Foto aufnehmen, Einfügen.
-- One main task per screen. Secondary options sit in menus or sheets: language and tone are lists with checkmarks in a "Text anpassen" sheet. Details sit behind chevrons.
+| Role | Hex |
+|---|---|
+| Background | #F7F5F1 |
+| Ink | #1C1B19 |
+| Secondary text | #8A857D |
+| Hairline | #E3DFD8 |
+| Photo ground | #ECE8E1 |
+| Accent (deep spruce) | **#3E4A43** |
 
-**AI text**
-- One quiet "KI-Vorschlag" line per listing, with an "Anpassen" link.
-- Uncertain items get a small "?" badge, not coloured boxes.
+Orange and violet are never used. The photos carry the colour.
 
-**Keyboard**
-- A system-like keyboard: German layout, globe key, 44 pt keys.
-- On top, one row of capsules: Titel, Beschreibung, Hashtags, and an info button for the reference values.
+**Type**
+- Display titles in Apple's **New York** serif (`.fontDesign(.serif)`): "Deine Stücke", the item title, sheet titles.
+- Everything else in SF Pro.
+- Small section labels in uppercase, 11 pt semibold, +1.2 tracking.
+
+**Glass and colour use**
+- Glass only on the navigation layer: the floating tab bar (Stücke · Auf Vinted · Profil), circular toolbar buttons and the progress accessory capsule.
+- One tinted element per screen, in spruce: the "Neues Inserat" hero card or the primary capsule button.
+
+**Start screen**
+- Date label and serif title, with "3 bereit zum Hochladen" beneath.
+- A spruce "Neues Inserat" hero card, which opens the add menu: Mediathek, Foto aufnehmen, Einfügen.
+- A 2-column 4:5 grid of background-removed packshots on #ECE8E1, each with a small status capsule.
+- AI progress shows in a `tabViewBottomAccessory` capsule with a determinate ring.
+- The quota is a small "7 frei" glass capsule with a ring.
+
+**First launch**
+- A garment trio as the hero, then "Aus deinem Schrank. Direkt auf Vinted."
+- One spruce "Fotos auswählen" button, with "Foto aufnehmen" and "Einfügen" as quiet links.
+
+**Detail screens**
+- Large packshot on top, serif title, then one quiet "KI-Vorschlag · Deutsch · Freundlich" line with "Anpassen".
+- Facts in a white inset list with hairlines.
+- Language (Deutsch/English) and tone are checkmark lists in the "Text anpassen" sheet.
+
+**Photos**
+- Garment photos get on-device subject lifting (Vision `VNGenerateForegroundInstanceMaskRequest`) for consistent packshots.
+- The originals are kept for the Vinted upload.
+
+**Feel**
+- Haptics: a light impact on card press with a 0.97-scale spring, and a success haptic when a listing is ready.
 
 ### D8 — Localization
 
