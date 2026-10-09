@@ -75,7 +75,15 @@ The category SHALL be set in this order: keep a category Vinted already shows th
 - **THEN** Thrift searches and selects "Strickpullover — Damen > Kleidung > Pullover & Sweatshirts"
 
 ### Requirement: Confirmed selection at a person's pace
-A field SHALL only count as filled when the form shows the chosen value. If a click on an option does not take, the extension SHALL try the next likely target inside it (native radio/checkbox, label, inner role element, text element) and reopen the picker once if it closed; multi-select pickers get a single click. Clicks SHALL be mouse-like (hover, press, release with real coordinates), searches typed key by key, with pauses of roughly half a second to a second between steps. Pickers that are pre-rendered and only shown on open SHALL be recognised.
+A field SHALL only count as filled when the form shows the chosen value. Clicks SHALL be mouse-like and paced like a person, and pickers that are only shown (not added) on open SHALL be recognised.
+
+#### Scenario: Pace and gestures
+- **WHEN** the extension opens a picker, types a search or chooses an option
+- **THEN** it hovers, presses and releases with real coordinates, types key by key, and pauses about half a second to a second between steps
+
+#### Scenario: Retry inside the option
+- **WHEN** a click on an option does not make the field show it
+- **THEN** the extension tries the radio/checkbox, label, role element and text element inside it, reopening the picker once if it closed; multi-select pickers get a single click only
 
 #### Scenario: Size tile ignores the click on its box
 - **WHEN** the size grid only reacts to a click on the text inside a tile
