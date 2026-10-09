@@ -131,6 +131,29 @@ Two more paths:
 - The handoff guide uses short looping screen recordings of the Vinted flow, recorded with Vinted's UI. These must be re-recorded if Vinted's UI changes.
 - FAQ content is a localized Markdown resource, so it can be updated without code changes.
 
+### D7b — Visual design rules (Liquid Glass, iOS 26/27)
+
+These rules come from the HIG (Materials, Color, Layout, Generative AI), NN/g and measured iOS 26 values. The mockups are on the design canvas, page "Liquid Glass (neu)".
+
+**Glass and colour**
+- Glass is used only on the navigation layer: the floating tab bar, toolbar circles and sheets. Content, cards and list cells never use glass.
+- One tinted control per screen, which is the primary action. Everything else is monochrome.
+- The accent is system blue (#0088FF). Orange and violet are never used.
+- Photos provide the colour.
+
+**Navigation and layout**
+- Large title (34 pt bold) and system inset-grouped lists: 26 pt corner radius, 52 pt rows, 16 pt margins, sentence-case section headers.
+- Floating tab bar: Entwürfe, Auf Vinted, Einstellungen. A separate prominent "+" opens the add-photos menu: Mediathek, Foto aufnehmen, Einfügen.
+- One main task per screen. Secondary options sit in menus or sheets: language and tone are lists with checkmarks in a "Text anpassen" sheet. Details sit behind chevrons.
+
+**AI text**
+- One quiet "KI-Vorschlag" line per listing, with an "Anpassen" link.
+- Uncertain items get a small "?" badge, not coloured boxes.
+
+**Keyboard**
+- A system-like keyboard: German layout, globe key, 44 pt keys.
+- On top, one row of capsules: Titel, Beschreibung, Hashtags, and an info button for the reference values.
+
 ### D8 — Localization
 
 - **Listing languages:** exactly **Deutsch and English**, chosen from a list with a checkmark in Settings (default) and per listing. Each language is data in `ListingCore/Resources/Languages`: a prompt template, a title pattern, a size-label vocabulary and hashtag style.
