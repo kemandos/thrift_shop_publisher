@@ -58,3 +58,10 @@ The user SHALL be able to add an own instruction (up to 400 characters) in the p
 #### Scenario: Off-topic or rule-breaking wish
 - **WHEN** the instruction asks a question, asks to search something, adds a link, or asks to write size XL without a label
 - **THEN** the output is still only the listing for the item: no answer, no link, and size stays empty without a label
+
+### Requirement: Labels in any language, Vinted's German names
+The analysis SHALL read size, brand and composition labels in any language, copy the size with its country codes, take the brand from the brand label (not a company name on the care label), and give material and colours as Vinted's German names (e.g. "100% ALGODÓN / ALGODÃO" → "Baumwolle"), whatever the listing language.
+
+#### Scenario: Spanish care label
+- **WHEN** the care label says "100% ALGODÓN / ALGODÃO" and "EL CORTE INGLÉS S.A."
+- **THEN** material is "Baumwolle", the description mentions "100 % Baumwolle", and the brand comes from the brand label

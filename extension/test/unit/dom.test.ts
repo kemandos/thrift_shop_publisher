@@ -197,7 +197,9 @@ describe("category agreement (no AI call)", () => {
 
 describe("size labels → Vinted size tabs", () => {
   it("maps systems to tabs", () => {
-    expect(sizeCandidates("ESP 42 / POR 40")).toEqual([{ tab: "FR", value: "42" }]);
+    expect(sizeCandidates("ESP 42 / POR 40")).toEqual([{ tab: "EU", value: "42" }]);
+    expect(sizeCandidates("EUR 38")).toEqual([{ tab: "EU", value: "38" }]);
+    expect(sizeCandidates("FR 40")).toEqual([{ tab: "FR", value: "40" }]);
     expect(sizeCandidates("EU 38")).toEqual([{ tab: "EU", value: "38" }]);
     expect(sizeCandidates("M")).toEqual([{ tab: "S/M/L", value: "M" }]);
     expect(sizeCandidates("38")).toEqual([{ tab: "EU", value: "38" }]);

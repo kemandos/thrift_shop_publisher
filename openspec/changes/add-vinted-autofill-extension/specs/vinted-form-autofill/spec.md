@@ -89,11 +89,15 @@ Brand, size, condition, colour, material and category-specific extra fields (e.g
 - **THEN** "Mini" is selected without an extra AI call
 
 ### Requirement: Size through Vinted's size tabs
-When the size picker has system tabs (S/M/L, EU, FR, IT, UK, US), the extension SHALL open the tab that matches the label's system and then select the exact size; tabs are never chosen as a size. Spanish sizes map to the FR tab; systems without a tab are skipped; letter sizes use S/M/L.
+When the size picker has system tabs (S/M/L, EU, FR, IT, UK, US), the extension SHALL open the tab that matches the label's system and then select the exact size (chips may carry the system, e.g. "EU 42"); tabs are never chosen as a size, and a size without an exact match is never guessed. Spanish (ESP) and EUR sizes map to the EU tab; systems without a tab are skipped; letter sizes use S/M/L.
 
 #### Scenario: Spanish label
 - **WHEN** the label says "ESP 42 / POR 40"
-- **THEN** the extension opens the FR tab and selects 42
+- **THEN** the extension opens the EU tab and selects "EU 42"
+
+#### Scenario: Material without a care label
+- **WHEN** no composition label is readable
+- **THEN** the extension ticks Vinted's first suggested material
 
 ### Requirement: Brand only with an exact match
 If Vinted does not detect the brand, the extension SHALL type it into the brand search and select it only when an option matches the name exactly; otherwise the brand is offered as a copy value.

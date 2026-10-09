@@ -182,12 +182,29 @@ test.describe("vinted.de structure (div rows, search, suggestions)", () => {
     );
   });
 
-  test("size from a foreign label goes through the right tab (ESP 42 → FR 42)", async ({ page }) => {
+  test("size from a Spanish label goes through the EU tab (ESP 42 → EU 42), chips with prefix", async ({ page }) => {
     await open(page, "vinted");
     await addPhotos(page, 1);
     const { state, log } = await runFill(page, "label", { ...STUB_ATTRIBUTES, size: "ESP 42 / POR 40" });
-    expect(state.size).toBe("FR 42");
-    expect(log.join("\n")).toContain("size: Reiter „FR“ für 42");
+    expect(state.size).toBe("EU 42");
+    expect(log.join("\n")).toContain("size: Reiter „EU“ für 42");
+  });
+
+  test("a size without exact match is never guessed", async ({ page }) => {
+    await open(page, "vinted");
+    await addPhotos(page, 1);
+    const { state, report, calls } = await runFill(page, "label", { ...STUB_ATTRIBUTES, size: "EU 50" });
+    expect(state.size).toBe("");
+    expect(calls).not.toContain("choose:size");
+    expect(report.unresolved).toContainEqual({ key: "size", label: "Größe", value: "EU 50" });
+  });
+
+  test("material without a care label: Vinted's suggestion is taken", async ({ page }) => {
+    await open(page, "vinted");
+    await addPhotos(page, 1);
+    const { state, log } = await runFill(page, "label", { ...STUB_ATTRIBUTES, material: null });
+    expect(state.material).toBe("Baumwolle");
+    expect(log.join("\n")).toContain("material: kein Etikett – nehme Vinteds Vorschlag „Baumwolle“");
   });
 
   test("brands rendered as links are selected without leaving the page; help rows are ignored", async ({ page }) => {

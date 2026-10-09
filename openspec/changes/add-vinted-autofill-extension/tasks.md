@@ -41,6 +41,8 @@
 
 - [x] 4.15 From the vinted.de log: size tabs (ESP 42 → FR 42), brand links clickable without navigation, help rows excluded, radio/checkbox first, multi-select retried only while unticked, specific category leaf over "Sonstiges"; verify fixture mirrors and unit tests
 
+- [x] 4.16 From the second vinted.de log: precise analysis prompt (labels in any language, material/colours in Vinted's German names, size with country codes, brand label vs company name, skort → Shorts), ESP/EUR → EU tab, prefixed size chips, size never guessed, brand searched even when the list starts empty, material from Vinted's suggestion without a label; verify tests
+
 ## 5. Settings and Chrome release (spec: extension-settings)
 
 - [x] 5.1 Build popup (Artikel verkaufen, last cost, month total) and options page (AI mode, key with test, server URL/token, language and tone lists, closing texts); verify unit/UI tests and masked key display

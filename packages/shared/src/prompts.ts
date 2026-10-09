@@ -23,14 +23,15 @@ const TONE_GUIDE: Record<ListingStyle["tone"], { de: string; en: string }> = {
 export const ANALYZE_SYSTEM = `You prepare second-hand clothing listings for Vinted from the seller's photos.
 
 Rules for facts:
-- Report only what the photos show. Never invent facts.
-- size: copy it exactly as printed on a size label (e.g. "M", "38", "W30 L32", "128"). If no size label is readable, size = null and sizeEvidence = "none".
-- brand: only from a readable logo, label or tag. Otherwise brand = null and brandEvidence = "none".
-- material: only from a readable care/composition label, otherwise null.
+- Report only what the photos show. Never invent facts. Read every label and tag in every photo first (size label, brand label, care/composition label); labels may be in any language (Spanish, Portuguese, French, Italian, English, …).
+- size: copy it exactly as printed, including the country codes (e.g. "M", "38", "EUR 38", "ESP 42 / POR 40", "W30 L32", "128"). If no size label is readable, size = null and sizeEvidence = "none".
+- brand: the brand name from a readable brand label, logo or tag (e.g. "Easy Wear", "Zara"). A company or store name on the care label (e.g. "El Corte Inglés S.A.") is not the brand when a separate brand label exists. No readable brand → brand = null and brandEvidence = "none".
+- material: from a readable care/composition label in any language, translated to Vinted's German material name of the main fibre: one of Baumwolle, Polyester, Elastan, Viskose, Wolle, Leinen, Seide, Kaschmir, Nylon, Acryl, Leder, Kunstleder, Denim, Modal, Lyocell, Alpaka, Mohair, Fleece, Samt, Spitze, Satin, Cord, Jersey. Examples: "100% ALGODÓN / ALGODÃO", "COTON", "COTTON", "COTONE" → "Baumwolle"; "POLIÉSTER" → "Polyester"; "LANA"/"LAINE" → "Wolle"; "LINO"/"LIN" → "Leinen"; "ELASTANO" → "Elastan". Mention the full composition (e.g. "100 % Baumwolle") in the description. No readable composition → null.
+- colors: Vinted's German colour names (Schwarz, Grau, Weiß, Creme, Beige, Aprikose, Orange, Korallenrot, Rot, Burgunderrot, Pink, Rose, Lila, Flieder, Hellblau, Blau, Marineblau, Türkis, Mintgrün, Grün, Dunkelgrün, Khaki, Braun, Senffarben, Gelb, Silber, Gold, Mehrfarbig), main colour first.
 - condition: use Vinted's scale. Any visible defect (stain, hole, pilling, fading) means at most "gut".
 - defects: list every visible defect with its location.
 - categoryPath: Vinted's German category names from the top down, as specific as you can, e.g. ["Damen","Kleidung","Shorts","Shorts mit hoher Taille"], ["Damen","Kleidung","Röcke","Miniröcke"], ["Herren","Kleidung","Pullover & Sweater","Strickjacken"], ["Damen","Schuhe","Sneaker"], ["Kinder","Mädchen", …]. If top-level options are offered, the first element MUST be one of them.
-- Garment type: look closely. Shorts and skorts have two leg openings; a skirt has one hem. Trousers vs. leggings, cardigan (open front) vs. jumper, dress vs. long top: decide from what is visible.
+- Garment type: look closely. Shorts and skorts (Hosenrock) have two leg openings; a skirt has one hem. On Vinted a skort belongs to Shorts, never to Röcke: categoryPath ["Damen","Kleidung","Shorts", …]. Trousers vs. leggings, cardigan (open front) vs. jumper, dress vs. long top: decide from what is visible.
 - price: a realistic second-hand range in whole euros for Vinted Germany.
 
 Rules for the text:
@@ -57,7 +58,7 @@ export function sellerWishesBlock(text: string | undefined): string {
 export function styleInstruction(style: Pick<ListingStyle, "language" | "tone"> & Partial<ListingStyle>): string {
   const lang = LANGUAGE_LABELS[style.language];
   const tone = TONE_GUIDE[style.tone][style.language];
-  return `Write title, description and hashtags in ${lang}. Tone: ${tone}. All attribute strings (itemType, colors, defects, material) also in ${lang}.${sellerWishesBlock(style.customInstructions)}`;
+  return `Write title, description and hashtags in ${lang}. Tone: ${tone}. itemType and defects also in ${lang}; colors, material and categoryPath always in Vinted's German names (the form is German).${sellerWishesBlock(style.customInstructions)}`;
 }
 
 export function analyzeUserText(style: ListingStyle, categoryOptions: string[]): string {

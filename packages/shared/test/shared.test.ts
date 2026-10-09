@@ -159,6 +159,13 @@ describe("own instruction (seller wishes)", () => {
     expect(sellerWishesBlock("x".repeat(1000)).length).toBeLessThan(450);
   });
 
+  it("analysis prompt reads labels in any language and uses Vinted's German names", () => {
+    expect(ANALYZE_SYSTEM).toContain('"100% ALGODÓN / ALGODÃO"');
+    expect(ANALYZE_SYSTEM).toContain('"ESP 42 / POR 40"');
+    expect(ANALYZE_SYSTEM).toContain("El Corte Inglés S.A.");
+    expect(styleInstruction({ language: "en", tone: "sachlich" })).toContain("colors, material and categoryPath always in Vinted's German names");
+  });
+
   it("system prompts limit the model to the clothing listing", () => {
     for (const sys of [ANALYZE_SYSTEM, REWRITE_SYSTEM]) {
       expect(sys).toContain("Your only job is the listing data for the clothing item");

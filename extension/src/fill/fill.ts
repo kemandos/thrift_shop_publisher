@@ -178,7 +178,8 @@ async function chooseOption(
   if (field === "brand") return want ? (options.find((o) => norm(o.label) === norm(want)) ?? null) : null;
   const direct = matchOption(options, want);
   if (direct) return direct;
-  if (field === "size" && !attrs.size) return null; // never guessed
+  // Size is never guessed: only an exact match from the label, else the user decides (copy value).
+  if (field === "size") return null;
   try {
     const { result } = await ctx.ai.choose({ field, attributes: attrs, options: options.map((o) => o.label) });
     return result.choice ? (options.find((o) => o.label === result.choice) ?? null) : null;
@@ -240,21 +241,22 @@ function clickTargets(row: Element, label: string): Element[] {
 export const SIZE_TAB = /^(s\/m\/l|eu|uk|fr|it|us|de|int)$/i;
 
 const SYSTEM_TAB: Record<string, string> = {
-  eu: "EU", de: "EU", d: "EU",
-  // Spanish women's sizes equal French ones.
-  fr: "FR", f: "FR", es: "FR", esp: "FR", e: "FR",
+  eu: "EU", eur: "EU", de: "EU", d: "EU",
+  fr: "FR", f: "FR",
+  // Spain (ESP) → Vinted's EU tab (owner's choice).
+  es: "EU", esp: "EU", e: "EU",
   it: "IT", i: "IT",
   uk: "UK", gb: "UK",
   us: "US", usa: "US",
 };
 
 /**
- * Size label → (tab, value) pairs to try, e.g. "ESP 42 / POR 40" → FR 42; "EU 38" → EU 38;
+ * Size label → (tab, value) pairs to try, e.g. "ESP 42 / POR 40" → EU 42; "EU 38" → EU 38;
  * "M" → S/M/L M; a bare "38" → EU 38. Systems Vinted has no tab for (POR) are skipped.
  */
 export function sizeCandidates(size: string): Array<{ tab: string; value: string }> {
   const out: Array<{ tab: string; value: string }> = [];
-  for (const m of size.matchAll(/(?:^|[^\p{L}])(EU|DE|D|FR|F|ES|ESP|E|IT|I|UK|GB|US|USA|PT|POR)\s*[:.]?\s*(\d{1,3}(?:[.,]5)?)(?!\d)/giu)) {
+  for (const m of size.matchAll(/(?:^|[^\p{L}])(EUR|EU|DE|D|FR|F|ES|ESP|E|IT|I|UK|GB|US|USA|PT|POR)\s*[:.]?\s*(\d{1,3}(?:[.,]5)?)(?!\d)/giu)) {
     const tab = SYSTEM_TAB[m[1]!.toLowerCase()];
     if (tab) out.push({ tab, value: m[2]!.replace(",", ".") });
   }
@@ -278,8 +280,13 @@ async function sizeBySystem(ctx: FillContext, session: PickerSession, trigger: E
     ctx.log?.(`size: Reiter „${tab.label}“ für ${cand.value}`);
     await humanClick(tab.el, ctx.map.forbiddenClickText, ctx.pace, { allowLinks: true });
     await ctx.pace.step();
+    // Chips may carry the system ("FR 42") or not ("42").
     const want = norm(cand.value);
-    const opt = await waitUntilValue(() => session.scan().find((o) => !SIZE_TAB.test(o.label.trim()) && norm(o.label) === want), 1500);
+    const isWanted = (label: string) => {
+      const n = norm(label);
+      return n === want || n === `${norm(cand.tab)} ${want}` || n.split(/\s+/).at(-1) === want && n.startsWith(norm(cand.tab));
+    };
+    const opt = await waitUntilValue(() => session.scan().find((o) => !SIZE_TAB.test(o.label.trim()) && isWanted(o.label)), 1500);
     if (!opt) {
       ctx.log?.(`size: ${cand.value} im Reiter „${tab.label}“ nicht gefunden`);
       continue;
@@ -354,7 +361,8 @@ async function fillList(ctx: FillContext, key: ChooseField, attrs: Attributes, w
   for (let round = 0; round < 2; round++) {
     const result = await withPicker(ctx, key, trigger, async (session) => {
       let options = session.options;
-      if (!options.length) return "none" as const;
+      // The brand list may start empty (only a help row): search anyway.
+      if (!options.length && key !== "brand") return "none" as const;
       if (key === "brand" && want) {
         const found = await searchInPicker(ctx.doc, session, want, ctx.pace);
         if (found) {
@@ -572,6 +580,26 @@ export function sameKind(category: string, analysed: string[]): boolean {
   return cat.some((c) => ana.some((w) => w.includes(c.slice(0, 4)) || c.includes(w.slice(0, 4))));
 }
 
+/** Picks Vinted's first suggested option (rows marked "suggestion", listed under "Vorgeschlagen"). */
+async function fillSuggested(ctx: FillContext, key: ChooseField): Promise<string | null> {
+  const trigger = await resolve(ctx, key);
+  if (!trigger) return null;
+  if (looksSet(trigger)) return displayedValue(trigger);
+  return withPicker(ctx, key, trigger, async (session) => {
+    const pick = session.options.find((o) => o.el.matches("[data-testid*='suggestion']") || !!o.el.querySelector("[data-testid*='suggestion']"));
+    if (!pick) {
+      ctx.log?.(`${key}: kein Etikett und kein Vinted-Vorschlag – offen gelassen`);
+      await closePicker(trigger, ctx.doc);
+      return null;
+    }
+    ctx.log?.(`${key}: kein Etikett – nehme Vinteds Vorschlag „${pick.label}“`);
+    await ctx.pace.step();
+    const ok = rowChecked(pick.el) || (await selectOption(ctx, key, pick, () => valueShown(trigger, pick.label) || rowChecked(pick.el)));
+    await closeIfOpen(ctx, session);
+    return ok ? pick.label : null;
+  });
+}
+
 /** Extra pickers Vinted shows for some categories ("Rocklänge", …): a "Wähle …" field we do not know. */
 async function fillExtraFields(ctx: FillContext, attrs: Attributes): Promise<void> {
   const known = new Set(
@@ -696,7 +724,7 @@ async function fillFormUnlocked(ctx: FillContext, photos: Photo[], style: Listin
     ["condition", CONDITION_LABELS[attrs.condition][lang]],
     ["color", attrs.colors[0] ?? null],
   ];
-  if (attrs.material) steps.push(["material", attrs.material]);
+  steps.push(["material", attrs.material]);
   if (!categorySet) {
     ctx.log?.("Keine Kategorie gesetzt – Marke, Größe, Zustand, Farbe, Material erscheinen erst danach");
     if (attrs.brand) unresolved.push({ key: "brand", label: FIELD_LABEL.brand, value: attrs.brand });
@@ -722,7 +750,11 @@ async function fillFormUnlocked(ctx: FillContext, photos: Photo[], style: Listin
         unresolved.push({ key, label: FIELD_LABEL[key], value: "Größe nicht erkannt – bitte auswählen" });
         continue;
       }
-      const chosen = await fillList(ctx, key, attrs, want).catch(failed(key));
+      // Material without a readable care label: take Vinted's own suggestion ("Vorgeschlagen").
+      const chosen =
+        key === "material" && !want
+          ? await fillSuggested(ctx, "material").catch(failed(key))
+          : await fillList(ctx, key, attrs, want).catch(failed(key));
       done(key, !!chosen, want ?? "");
     }
 

@@ -248,7 +248,8 @@
         holder.replaceChildren();
         const help = mk("li"); const hb = mk("button", "", "Infos zu Größen und Entschädigungen"); hb.type = "button";
         hb.addEventListener("click", () => { state.brandHelp = true; }); help.append(hb); holder.append(help);
-        for (const b of BRANDS.filter((b) => b.toLowerCase().includes(q.toLowerCase()))) {
+        // Like vinted.de: before typing only the help row is shown.
+        for (const b of q ? BRANDS.filter((b) => b.toLowerCase().includes(q.toLowerCase())) : []) {
           const li = mk("li"); li.style.cursor = "pointer";
           const a = mk("a"); a.href = "/brand/" + encodeURIComponent(b);
           const bold = mk("b", "", b.toLowerCase()); a.append(bold);
@@ -279,8 +280,9 @@
       tiles.replaceChildren();
       for (const sz of SYSTEMS[sys]) {
         const tile = mk("div", "tile");
-        const txt = mk("span", "", sz);
+        // Like vinted.de: chips outside S/M/L carry the system ("EU 42").
         const label = sys === "S/M/L" ? sz : `${sys} ${sz}`;
+        const txt = mk("span", "", label);
         txt.addEventListener("click", (e) => { e.stopPropagation(); state.size = label; inputs.size.value = label; sizeDd.classList.remove("open"); open = null; });
         tile.append(txt);
         tiles.append(tile);
@@ -321,9 +323,22 @@
         inputs.color.value = state.colors.join(", ");
       }));
     });
+    // Material: "Vorgeschlagen" rows first (test id contains "suggestion"), checkboxes only.
     inputs.material.addEventListener("click", () => {
       const panel = makePanel(inputs.material);
-      for (const m of ["Baumwolle", "Wolle", "Polyester"]) panel.append(cell(m, "", () => choose("material", m, m)));
+      panel.append(mk("div", "section", "Vorgeschlagen"));
+      const ul = mk("ul"); panel.append(ul);
+      const set = (m, box) => {
+        const list = (state.material ? state.material.split(", ") : []).filter((x) => x !== m);
+        if (box.checked) list.push(m);
+        state.material = list.join(", "); inputs.material.value = state.material;
+      };
+      ["Baumwolle", "Leinen"].forEach((m, i) => {
+        const li = inputRow(m, "", "checkbox", (box) => set(m, box));
+        li.querySelector("input").setAttribute("data-testid", `material-suggestion-checkbox-${i}--input`);
+        ul.append(li);
+      });
+      for (const m of ["Acryl", "Polyester", "Wolle"]) ul.append(inputRow(m, "", "checkbox", (box) => set(m, box)));
     });
   } else {
   const fields = [
