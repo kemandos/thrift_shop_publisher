@@ -1,30 +1,29 @@
 # Thrift Shop Publisher
 
-An iPhone app that turns photos of second-hand clothes into ready-to-use **Vinted listings**:
+A personal helper for selling clothes on **Vinted**, on the computer (Chrome) and the iPhone (Safari):
 
-1. Pick photos from the library. The app groups them per garment on the device.
-2. AI reads the **size from the label** and identifies type, brand, material and condition. It says "unknown" instead of guessing.
-3. Title, description and hashtags are written in **German or English**, in the tone you choose, and you can edit them.
-4. **Veröffentlichen**: the photos go into a "Vinted" album and the Vinted app opens. Our keyboard fills in the text with one tap per field, and you tap "Hochladen".
-5. First run is guided step by step, and help/FAQ is built in.
+1. Open **vinted.de → Artikel verkaufen** and add your photos as usual.
+2. Tap **✨ Ausfüllen**. Claude looks at the photos, reads the size from the label, and fills in title, description, category, brand, size, condition, colour and price, in **German or English** and in your chosen tone.
+3. Check it and tap **Hochladen** yourself. The extension never posts on its own.
 
-Pricing: 10 free listings once, then Basic €4.99/month or Pro €9.99/month, or a credit pack.
+Cost: about 0.2 ct per item with your own Anthropic API key. An optional small server on your own Oracle VM can hold the key instead.
 
 ## Status
 
 Planning stage, using [OpenSpec](https://github.com/Fission-AI/OpenSpec) spec-driven development.
 
-| Artifact | Path |
+| Change | Status |
 |---|---|
-| Proposal (why / what) | `openspec/changes/add-iphone-listing-app/proposal.md` |
-| Specs (behaviour contract, 9 capabilities) | `openspec/changes/add-iphone-listing-app/specs/*/spec.md` |
-| Design (Swift, hybrid AI, backend, pricing, handoff) | `openspec/changes/add-iphone-listing-app/design.md` |
-| Tasks (implementation plan) | `openspec/changes/add-iphone-listing-app/tasks.md` |
+| `add-vinted-autofill-extension` | **Active plan**: TypeScript extension (Chrome + Safari iOS), optional server, small iPhone container app |
+| `add-iphone-listing-app` | Parked: full native iPhone app with backend and subscriptions, for a possible public product later |
+
+Design mockups: the claude.ai design canvas "Thrift Shop – iPhone Designvorschläge".
+Research notes: `docs/ios27-research.md`.
 
 ```bash
 npm i -g @fission-ai/openspec
-openspec show add-iphone-listing-app
-openspec validate add-iphone-listing-app --strict
+openspec show add-vinted-autofill-extension
+openspec validate add-vinted-autofill-extension --strict
 ```
 
-In Claude Code, run `/opsx:apply` to start implementing.
+In Claude Code, run `/opsx:apply add-vinted-autofill-extension` to start implementing.

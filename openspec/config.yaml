@@ -1,12 +1,12 @@
 schema: spec-driven
 
 context: |
-  Product: an iPhone app (Swift/SwiftUI, native) that turns clothing photos into Vinted listings; first user is a private seller in Germany, later sold to other private sellers via the App Store.
-  Vinted offers no listing API for private sellers (Vinted Pro Integrations is business-only and allowlisted); the app MUST NOT automate Vinted, call its private API, or post on the user's behalf. The user always taps the final publish button inside Vinted.
-  Listing text is generated in a user-selectable language (German and English at launch); app UI in German and English.
-  AI calls go through our own backend proxy; no AI provider key ever ships in the app. Keep AI cost per listing well below 1 cent; prefer on-device Apple frameworks (Vision, Foundation Models) where they are good enough.
-  Photos are personal data (GDPR): send only downscaled, metadata-free images, only when the user starts an analysis, and never store them on the server beyond the request.
-  Mac support is a later phase; shared logic must stay in a platform-neutral Swift package.
+  Personal tool for one household selling clothes on Vinted (Germany), on computer (Chrome) and iPhone (Safari).
+  Primary product: a TypeScript WebExtension that fills Vinted's own web upload form (vinted.de/items/new) from photos the user added there, using Claude; the user always clicks "Hochladen" themselves.
+  Never automate Vinted beyond filling the open form after a user click: no auto-submit, no Vinted API, no headless/server-side browser with the Vinted login, no relisting or messaging.
+  Listing text only in Deutsch or English. Keep AI cost per item well below 1 cent (default model Claude Haiku 5.5).
+  No mandatory backend: AI calls go directly with the user's own key, or optionally through the owner's own small TypeScript server on an Oracle VM. Photos are never stored server-side.
+  The parked change add-iphone-listing-app describes a possible public native product later; do not mix its subscription/backend requirements into the extension work.
 
 # Project context (optional)
 # Add only constraints that should guide OpenSpec artifacts and workflows.
