@@ -1,0 +1,23 @@
+:root { color-scheme: light; --bg: #F7F5F1; --ink: #1C1B19; --muted: #8A857D; --line: #E3DFD8; --accent: #3E4A43; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; }
+body.popup { width: 300px; padding: 16px; }
+body.options { max-width: 560px; margin: 0 auto; padding: 24px 16px 48px; }
+h1 { font: 500 30px/1.1 "New York", ui-serif, Georgia, serif; margin: 0 0 4px; letter-spacing: -0.4px; }
+h2 { font: 600 11px/1 -apple-system, system-ui, sans-serif; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); margin: 22px 0 8px; }
+.sub { color: var(--muted); margin: 0 0 14px; }
+section { background: #fff; border-radius: 22px; padding: 4px 16px 16px; margin-top: 16px; }
+label { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
+label.radio { display: flex; gap: 8px; align-items: center; color: var(--ink); font-size: 16px; padding: 8px 0; border-bottom: 1px solid var(--line); margin: 0; }
+.list label.radio:last-child { border-bottom: none; }
+input[type=password], input[type=url], textarea { width: 100%; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; font: inherit; background: #fff; }
+button { font: 600 15px/1 -apple-system, system-ui, sans-serif; cursor: pointer; }
+button.primary { width: 100%; height: 48px; border: none; border-radius: 24px; background: var(--accent); color: #F7F5F1; margin-top: 16px; }
+button.ghost { height: 38px; border: 1px solid var(--line); border-radius: 19px; background: #fff; color: var(--ink); padding: 0 14px; margin-top: 12px; width: 100%; }
+.hint { color: var(--muted); font-size: 13px; margin: 6px 0 0; min-height: 1em; }
+.note { background: #fff; border-radius: 14px; padding: 10px 12px; font-size: 13px; margin-top: 10px; }
+.cost { display: flex; gap: 12px; margin: 14px 0 0; }
+.cost div { flex: 1; background: #fff; border-radius: 14px; padding: 10px; }
+.cost dt { font-size: 11px; color: var(--muted); }
+.cost dd { margin: 2px 0 0; font-weight: 600; }
+.hidden { display: none !important; }

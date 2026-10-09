@@ -1,0 +1,14 @@
+// Shared signing settings for both targets (Debug and Release).
+//
+// Put your Apple team ID into Config/Signing.local.xcconfig (gitignored), e.g.:
+//
+//   DEVELOPMENT_TEAM = ABCDE12345
+//
+// A free Apple ID ("Personal Team") works. Find the ID in Xcode → Settings → Accounts,
+// or set the team once in Xcode's Signing & Capabilities tab and copy it from there.
+// Values set in Xcode's UI are lost when the project is regenerated with xcodegen;
+// values in Signing.local.xcconfig are not.
+
+DEVELOPMENT_TEAM =
+
+#include? "Signing.local.xcconfig"

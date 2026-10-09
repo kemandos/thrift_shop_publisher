@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Thrift</title>
+    <link rel="stylesheet" href="../../src/ui/page.css" />
+  </head>
+  <body class="popup">
+    <h1>Thrift</h1>
+    <p class="sub">Vinted-Inserate aus deinen Fotos</p>
+    <button id="sell" class="primary">Artikel verkaufen</button>
+    <div id="setup" class="note hidden">Noch kein API-Key bzw. Server eingetragen.</div>
+    <dl class="cost">
+      <div><dt>Letztes Inserat</dt><dd id="last">–</dd></div>
+      <div><dt>Dieser Monat</dt><dd id="month">–</dd></div>
+    </dl>
+    <button id="options" class="ghost">Einstellungen</button>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

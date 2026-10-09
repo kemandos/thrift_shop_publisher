@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fixture: Artikel verkaufen</title>
+<!--
+  Test fixture written for this project. It mirrors the *structure* of a marketplace upload form
+  (photo area, text fields, tree/list/search pickers, price, upload button) without copying any
+  third-party code. Variants via ?variant=desktop|mobile|broken.
+-->
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; padding: 16px; max-width: 720px; }
+  .box { border: 1px solid #ddd; border-radius: 8px; padding: 12px; margin: 12px 0; }
+  .field { padding: 10px 0; border-bottom: 1px solid #eee; }
+  .trigger { padding: 8px; border: 1px solid #ccc; border-radius: 6px; cursor: pointer; min-height: 20px; }
+  .menu { border: 1px solid #aaa; background: #fff; padding: 4px; margin-top: 4px; }
+  .menu li, .menu label { display: block; padding: 6px; cursor: pointer; list-style: none; }
+  .modal { position: fixed; inset: 0; background: #fff; padding: 16px; overflow: auto; z-index: 10; }
+  .photos img { width: 80px; height: 100px; object-fit: cover; margin: 4px; }
+</style>
+</head>
+<body>
+<h1>Artikel verkaufen</h1>
+<h2>Fotos</h2>
+<div class="box photos" id="photoBox">
+  <div id="thumbs"></div>
+  <button type="button" id="addPhotos">+ Fotos hinzufügen</button>
+  <input type="file" id="fileInput" accept="image/*" multiple hidden>
+</div>
+
+<h2>Infos zu deinem Artikel</h2>
+<div class="box">
+  <div class="field"><span>Titel</span><br><input id="title" placeholder="Teile Käufern mit, was du verkaufst"></div>
+  <div class="field"><span>Beschreibung</span><br><textarea id="description" rows="4" placeholder="Erzähle Käufern mehr darüber"></textarea></div>
+</div>
+
+<h2>Artikeldetails</h2>
+<div class="box" id="details"></div>
+
+<div class="box"><div class="field"><span>Preis</span><br><input id="price" inputmode="decimal"></div></div>
+
+<button type="button" id="draft">Entwurf speichern</button>
+<button type="submit" id="upload">Hochladen</button>
+
+<script>
+(() => {
+  const variant = new URLSearchParams(location.search).get("variant") || "desktop";
+  const mobile = variant === "mobile";
+  const state = (window.__state = { title: "", description: "", price: "", category: [], brand: "", size: "", condition: "", colors: [], submitted: false, draft: false });
+
+  // "Controlled" inputs: state only changes through input events, like a React form.
+  for (const id of ["title", "description", "price"]) {
+    const el = document.getElementById(id);
+    if (!mobile && id === "title") el.setAttribute("data-testid", "title--input");
+    el.addEventListener("input", (e) => { state[id] = e.target.value; });
+  }
+  document.getElementById("upload").addEventListener("click", () => { state.submitted = true; });
+  document.getElementById("draft").addEventListener("click", () => { state.draft = true; });
+
+  const TREE = {
+    Damen: { Kleidung: { "Pullover & Sweatshirts": ["Strickpullover", "Sweatshirts", "Hoodies"], Jeans: ["Skinny", "Straight"], Kleider: ["Minikleider", "Maxikleider"] }, Schuhe: ["Sneaker", "Stiefel"] },
+    Herren: { Kleidung: { Pullover: ["Strickpullover"], Jeans: ["Slim"] } },
+    Kinder: ["Mädchen", "Jungen"],
+    Haus: ["Deko"],
+  };
+  const BRANDS = ["COS", "Zara", "H&M", "Levi's", "Mango", "Cos Bar"];
+  const SIZES = ["XS", "S", "M", "L", "XL"];
+  const CONDITIONS = ["Neu mit Etikett", "Neu ohne Etikett", "Sehr gut", "Gut", "Zufriedenstellend"];
+  const COLORS = ["Schwarz", "Weiß", "Beige", "Blau", "Rot"];
+
+  let open = null; // { panel, close }
+  function closeOpen() { if (open) { open.panel.remove(); open = null; } }
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeOpen(); });
+
+  function makePanel(anchor) {
+    closeOpen();
+    const panel = document.createElement("div");
+    if (mobile) { panel.className = "modal"; panel.setAttribute("role", "dialog"); document.body.append(panel); }
+    else { panel.className = "menu"; anchor.after(panel); }
+    open = { panel };
+    return panel;
+  }
+  function list(panel, items, onPick, role = "option") {
+    const ul = document.createElement("ul");
+    ul.setAttribute("role", "listbox");
+    for (const it of items) {
+      const li = document.createElement("li");
+      li.setAttribute("role", role);
+      li.textContent = it;
+      li.addEventListener("click", () => onPick(it));
+      ul.append(li);
+    }
+    panel.append(ul);
+  }
+
+  const fields = [
+    ["category", variant === "broken" ? "Rubrik" : "Kategorie", "catalog-select-dropdown-input"],
+    ["brand", "Marke", "brand-select-dropdown-input"],
+    ["size", "Größe", "size-select-dropdown-input"],
+    ["condition", variant === "broken" ? "Artikelzustand" : "Zustand", "status-select-dropdown-input"],
+    ["color", "Farbe", "color-select-dropdown-input"],
+  ];
+  const details = document.getElementById("details");
+  const triggers = {};
+  for (const [key, label, testid] of fields) {
+    const f = document.createElement("div");
+    f.className = "field";
+    const l = document.createElement("span");
+    l.textContent = label;
+    const t = document.createElement("div");
+    t.className = "trigger";
+    t.tabIndex = 0;
+    t.setAttribute("role", "combobox");
+    if (!mobile && variant !== "broken") t.setAttribute("data-testid", testid);
+    t.textContent = "Auswählen";
+    f.append(l, t);
+    details.append(f);
+    triggers[key] = t;
+  }
+
+  triggers.category.addEventListener("click", () => {
+    const panel = makePanel(triggers.category);
+    let node = TREE; const path = [];
+    const render = () => {
+      panel.replaceChildren();
+      const items = Array.isArray(node) ? node : Object.keys(node);
+      list(panel, items, (it) => {
+        path.push(it);
+        const next = Array.isArray(node) ? null : node[it];
+        if (!next) { state.category = path.slice(); triggers.category.textContent = path.join(" › "); closeOpen(); return; }
+        node = next; render();
+      });
+    };
+    render();
+  });
+
+  triggers.brand.addEventListener("click", () => {
+    const panel = makePanel(triggers.brand);
+    const search = document.createElement("input");
+    search.type = "search"; search.placeholder = "Marke suchen";
+    panel.append(search);
+    const holder = document.createElement("div"); panel.append(holder);
+    const render = (q) => { holder.replaceChildren(); list(holder, BRANDS.filter((b) => b.toLowerCase().includes(q.toLowerCase())), (b) => { state.brand = b; triggers.brand.textContent = b; closeOpen(); }); };
+    search.addEventListener("input", () => render(search.value));
+    render("");
+  });
+
+  triggers.size.addEventListener("click", () => {
+    const panel = makePanel(triggers.size);
+    list(panel, SIZES, (s) => { state.size = s; triggers.size.textContent = s; closeOpen(); });
+  });
+
+  triggers.condition.addEventListener("click", () => {
+    const panel = makePanel(triggers.condition);
+    list(panel, CONDITIONS, (c) => { state.condition = c; triggers.condition.textContent = c; closeOpen(); }, "radio");
+  });
+
+  triggers.color.addEventListener("click", () => {
+    const panel = makePanel(triggers.color);
+    for (const c of COLORS) {
+      const lab = document.createElement("label");
+      const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = state.colors.includes(c);
+      cb.addEventListener("change", () => {
+        state.colors = cb.checked ? [...state.colors, c].slice(0, 2) : state.colors.filter((x) => x !== c);
+        triggers.color.textContent = state.colors.join(", ") || "Auswählen";
+      });
+      lab.append(cb, " " + c);
+      panel.append(lab);
+    }
+  });
+
+  // Photos: test hook + real file input.
+  const thumbs = document.getElementById("thumbs");
+  window.__addPhoto = (blob) => { const img = document.createElement("img"); img.src = URL.createObjectURL(blob); thumbs.append(img); };
+  document.getElementById("addPhotos").addEventListener("click", () => document.getElementById("fileInput").click());
+  document.getElementById("fileInput").addEventListener("change", (e) => { for (const f of e.target.files) window.__addPhoto(f); });
+})();
+</script>
+</body>
+</html>

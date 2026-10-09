@@ -84,7 +84,7 @@ See `proposal.md`. Constraints:
 - **Stack:** Hono on Node 22, in Docker Compose with Caddy for automatic HTTPS (own domain or DuckDNS).
 - **Endpoints:** `POST /analyze`, `POST /refine`, `POST /rewrite`, `POST /pick-element`, `GET /form-map`.
 - **Auth:** a bearer token per device, set in the extension settings.
-- **Storage:** none for photos or text, which are processed in memory only. SQLite for usage counts.
+- **Storage:** none for photos or text, which are processed in memory only. Usage counts go to a small JSON file (`DATA_DIR/usage.json`).
 - **What it adds:** the Anthropic key lives only on the server; prompts and the form map update centrally; usage is tracked for both devices.
 
 The extension works without it (direct mode). The server is added when wanted.

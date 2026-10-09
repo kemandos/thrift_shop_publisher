@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - name: Build Safari web extension bundle
+        run: pnpm --filter @thrift/extension build:safari
+      - name: Install Chromium for Playwright
+        working-directory: extension
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Extension end-to-end tests
+        run: pnpm --filter @thrift/extension test:e2e

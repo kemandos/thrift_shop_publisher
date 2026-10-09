@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Thrift – Einstellungen</title>
+    <link rel="stylesheet" href="../../src/ui/page.css" />
+  </head>
+  <body class="options">
+    <h1>Einstellungen</h1>
+
+    <section>
+      <h2>KI-Zugang</h2>
+      <div class="group">
+        <label class="radio"><input type="radio" name="mode" value="direct" /> Eigener API-Key</label>
+        <label class="radio"><input type="radio" name="mode" value="server" /> Eigener Server</label>
+      </div>
+      <div id="direct" class="group">
+        <label for="apiKey">Anthropic API-Key</label>
+        <input id="apiKey" type="password" autocomplete="off" placeholder="sk-ant-…" />
+        <p class="hint" id="apiKeyMasked"></p>
+      </div>
+      <div id="server" class="group hidden">
+        <label for="serverUrl">Server-URL</label>
+        <input id="serverUrl" type="url" placeholder="https://thrift.example.de" />
+        <label for="serverToken">Token</label>
+        <input id="serverToken" type="password" autocomplete="off" />
+        <p class="hint" id="serverTokenMasked"></p>
+      </div>
+      <button id="test" class="ghost">Verbindung testen</button>
+      <p id="testResult" class="hint" role="status"></p>
+    </section>
+
+    <section>
+      <h2>Sprache</h2>
+      <div class="group list" id="languages"></div>
+      <h2>Ton</h2>
+      <div class="group list" id="tones"></div>
+    </section>
+
+    <section>
+      <h2>Schlusstext</h2>
+      <label for="closingTextDe">Deutsch</label>
+      <textarea id="closingTextDe" rows="2" placeholder="z. B. Versand innerhalb von 2 Tagen."></textarea>
+      <label for="closingTextEn">English</label>
+      <textarea id="closingTextEn" rows="2" placeholder="e.g. Ships within 2 days."></textarea>
+    </section>
+
+    <button id="save" class="primary">Speichern</button>
+    <p id="saved" class="hint" role="status"></p>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

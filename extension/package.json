@@ -1,0 +1,30 @@
+{
+  "name": "@thrift/extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wxt",
+    "build": "wxt build",
+    "build:test": "THRIFT_TEST=1 wxt build --mode test",
+    "build:safari": "wxt build -b safari --mv3",
+    "zip": "wxt zip",
+    "postinstall": "wxt prepare",
+    "test": "vitest run",
+    "test:e2e": "pnpm build:test && playwright test",
+    "typecheck": "wxt prepare && tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "0.133.0",
+    "@thrift/shared": "workspace:*",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1",
+    "esbuild": "0.28.2",
+    "happy-dom": "20.14.6",
+    "typescript": "5.9.3",
+    "vitest": "5.0.3",
+    "wxt": "0.21.4"
+  }
+}

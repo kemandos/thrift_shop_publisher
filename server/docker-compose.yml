@@ -1,0 +1,37 @@
+# Run from this folder: docker compose up -d --build
+services:
+  thrift-server:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+    image: thrift-server
+    env_file: .env
+    environment:
+      DATA_DIR: /app/data
+      PORT: "8787"
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    # Not published on the host; only Caddy reaches it on the compose network.
+    expose:
+      - "8787"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - thrift-server
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:
