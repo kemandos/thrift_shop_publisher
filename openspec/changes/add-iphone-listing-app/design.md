@@ -112,6 +112,14 @@ Greenfield repository. See `proposal.md` for motivation and `specs/` for the beh
 
 The keyboard must read the App Group container. That requires **"Allow Full Access"**, and iOS shows a privacy warning for it. App Review guideline 4.4.1 requires the keyboard to keep working without Full Access. It is therefore a complete QWERTZ/QWERTY typing keyboard with a listing bar on top. Without Full Access, the bar explains how to enable it instead of inserting text. The keyboard never opens other apps. The onboarding explains why: "the keyboard only reads your prepared listings and sends nothing". The privacy policy says the same.
 
+### D6a — Photo handoff findings (tested 2026-10-09)
+
+- **Share sheet:** Vinted does **not** appear as a target in the iOS share sheet, as tested on the owner's iPhone. Sharing photos directly into Vinted is therefore impossible.
+- **Vinted Pro Integrations:** business-only and allowlisted, and it works only for the business's own account, so it is not usable for an app serving private sellers.
+- **Competitors claiming "auto-fill":** they most likely use an in-app web view of vinted.de's upload form (`/items/new` exists and requires login) **[U]**. This is a terms-of-service grey zone, so it is not in the MVP. It may be reconsidered later as an explicit opt-in mode.
+- **Handoff:** the MVP uses the "Vinted" album plus the keyboard.
+- **Vinted photo rules:** up to 20 photos, the first showing the whole item, no filters, no stock-like images. Originals are handed off by default. Background-removed packshots are for the in-app gallery only, unless the user opts in.
+
 ### D6b — Adding photos
 
 A single "Fotos hinzufügen" button (a glass button in the toolbar, and the empty-state button) opens a menu with three entries:
@@ -174,8 +182,8 @@ Orange and violet are never used. The photos carry the colour.
 - Language (Deutsch/English) and tone are checkmark lists in the "Text anpassen" sheet.
 
 **Photos**
-- Garment photos get on-device subject lifting (Vision `VNGenerateForegroundInstanceMaskRequest`) for consistent packshots.
-- The originals are kept for the Vinted upload.
+- Garment photos get on-device subject lifting (Vision `VNGenerateForegroundInstanceMaskRequest`) for consistent packshots **inside the app only**.
+- Originals go to Vinted by default (see D6a).
 
 **Feel**
 - Haptics: a light impact on card press with a 0.97-scale spring, and a success haptic when a listing is ready.

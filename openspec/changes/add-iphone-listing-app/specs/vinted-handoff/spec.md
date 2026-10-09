@@ -17,6 +17,17 @@ When the user taps "Veröffentlichen" on a finished item, the system SHALL save 
 - **WHEN** the user publishes a second item
 - **THEN** the "Vinted" album contains only the second item's photos
 
+### Requirement: Original photos are handed off
+The photos saved for Vinted SHALL be the user's original photos (orientation-corrected, without location metadata), at most 20 per item, with a photo showing the whole item first; background-removed versions SHALL only be used if the user explicitly enables "Freigestellte Fotos verwenden".
+
+#### Scenario: Default handoff
+- **WHEN** the user publishes an item whose photos were shown background-removed in the app
+- **THEN** the "Vinted" album contains the original photos, not the background-removed versions
+
+#### Scenario: Too many photos
+- **WHEN** an item has 24 photos
+- **THEN** the system asks the user to choose at most 20 before saving them to the album
+
 ### Requirement: Vinted not installed
 The system SHALL detect when the Vinted app cannot be opened and offer the Vinted App Store page or the website instead.
 
