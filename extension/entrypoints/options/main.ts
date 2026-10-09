@@ -62,18 +62,7 @@ function render(s: Settings) {
   $("serverTokenMasked").textContent = s.serverToken ? `Gespeichert: ${maskSecret(s.serverToken)}` : "";
   radioList($("languages"), "language", LANGUAGES, LANGUAGE_LABELS, s.language);
   radioList($("tones"), "tone", TONES, TONE_LABELS, s.tone);
-  $<HTMLTextAreaElement>("customPrompt").value = s.customPrompt;
-  updateCount();
-  $<HTMLTextAreaElement>("closingTextDe").value = s.closingTextDe;
-  $<HTMLTextAreaElement>("closingTextEn").value = s.closingTextEn;
 }
-
-function updateCount() {
-  $("customPromptCount").textContent = `${$<HTMLTextAreaElement>("customPrompt").value.length} / 400`;
-}
-document.addEventListener("input", (e) => {
-  if ((e.target as HTMLElement).id === "customPrompt") updateCount();
-});
 
 function checked(name: string): string {
   return document.querySelector<HTMLInputElement>(`input[name=${name}]:checked`)?.value ?? "";
@@ -91,9 +80,6 @@ async function save(): Promise<Settings> {
     serverToken: token || current.serverToken,
     language: (checked("language") || "de") as Language,
     tone: (checked("tone") || "freundlich") as Tone,
-    customPrompt: $<HTMLTextAreaElement>("customPrompt").value.trim(),
-    closingTextDe: $<HTMLTextAreaElement>("closingTextDe").value,
-    closingTextEn: $<HTMLTextAreaElement>("closingTextEn").value,
   });
   render(s);
   return s;

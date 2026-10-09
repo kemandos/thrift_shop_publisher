@@ -22,7 +22,8 @@ function lines(el: Element): string[] {
   return raw
     .split("\n")
     .map((l) => l.replace(/\s+/g, " ").trim())
-    .filter(Boolean);
+    // Lines without letters or digits are icons/chevrons ("›"), not text.
+    .filter((l) => /[\p{L}\p{N}]/u.test(l));
 }
 
 function toOption(el: Element): Option | null {
@@ -278,12 +279,6 @@ export async function searchInPicker(doc: Document, session: PickerSession, quer
   return res ?? session.scan();
 }
 
-export async function clearPickerSearch(doc: Document, session: PickerSession, pace: Pacer): Promise<void> {
-  const search = findPickerSearch(doc, session);
-  if (!search || !search.value) return;
-  await typeText(search, "", pace);
-  await pace.step();
-}
 
 /** Compact outline of the picker DOM: tag, role, test id, short class, first text. No values from inputs. */
 function outline(roots: Element[], maxNodes: number): string {

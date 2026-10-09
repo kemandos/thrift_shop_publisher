@@ -49,7 +49,7 @@ The AI response SHALL be validated against a fixed schema; invalid responses SHA
 - **THEN** the user sees "Konnte das Inserat nicht erstellen – bitte erneut versuchen" and no field is changed
 
 ### Requirement: Own instruction, clothing text only
-The user SHALL be able to add an own instruction (up to 400 characters, default in the settings, adjustable per item in the panel) in addition to the tone. It SHALL only shape how title, description and hashtags are written. The AI SHALL do nothing else: no answers to questions, no searches, no other tasks, no links or contact details, and the instruction SHALL never override the fact rules (size and brand only from labels, defects always listed).
+The user SHALL be able to add an own instruction (up to 400 characters) in the panel right next to "Ausfüllen", sent with that fill and remembered for the next item, in addition to the tone. It SHALL only shape how title, description and hashtags are written. The AI SHALL do nothing else: no answers to questions, no searches, no other tasks, no links or contact details, and the instruction SHALL never override the fact rules (size and brand only from labels, defects always listed).
 
 #### Scenario: Style wish
 - **WHEN** the instruction says "Erwähne: Nichtraucherhaushalt. Kurze Sätze."

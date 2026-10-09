@@ -138,41 +138,21 @@ export function createPanel(doc: Document, h: PanelHandlers): Panel {
   for (const t of TONES) tone.append(el("option", { value: t }, TONE_LABELS[t]));
   styleRow.append(lang, tone);
 
-  // Own instruction (in addition to the tone), collapsible so the panel stays small.
-  const instrToggle = el(
-    "button",
-    {
-      class: "mt-1.5 cursor-pointer border-0 bg-transparent p-0 text-[12px] text-spruce underline pointer-coarse:py-2 pointer-coarse:text-sm",
-      "data-testid": "thrift-instructions-toggle",
-      "aria-expanded": "false",
-    },
-    "Eigene Anweisung",
-  );
+  // Own instruction, right where "Ausfüllen" is clicked: sent with this fill (in addition to the tone).
   const instr = el("textarea", {
-    class:
-      "field mt-1.5 hidden min-h-[64px] resize-y text-[13px] pointer-coarse:text-base",
-    rows: "2",
+    class: "field mt-2 block min-h-[40px] resize-none text-[13px] leading-snug pointer-coarse:text-base",
+    rows: "1",
     maxlength: "400",
-    placeholder: "z. B. Erwähne: Nichtraucherhaushalt. Kurze Sätze.",
+    placeholder: "Eigene Anweisung (optional), z. B. „Erwähne: Nichtraucherhaushalt“",
     "aria-label": "Eigene Anweisung für Titel und Beschreibung",
     "data-testid": "thrift-instructions",
   });
-  const instrHint = el(
-    "div",
-    { class: "mt-1 hidden text-[11px] text-muted pointer-coarse:text-xs" },
-    "Nur für den Text zum Kleidungsstück. Andere Aufgaben werden ignoriert.",
-  );
-  const setInstrOpen = (open: boolean) => {
-    instr.classList.toggle("hidden", !open);
-    instrHint.classList.toggle("hidden", !open);
-    instrToggle.setAttribute("aria-expanded", String(open));
+  const grow = () => {
+    instr.style.height = "auto";
+    instr.style.height = `${Math.min(instr.scrollHeight + 2, 120)}px`;
   };
-  const markInstr = () => {
-    instrToggle.textContent = instr.value.trim() ? "Eigene Anweisung ✓" : "Eigene Anweisung";
-  };
-  instrToggle.addEventListener("click", () => setInstrOpen(instr.classList.contains("hidden")));
   instr.addEventListener("input", () => {
-    markInstr();
+    grow();
     h.onInstructionsChange?.(instr.value);
   });
 
@@ -208,7 +188,7 @@ export function createPanel(doc: Document, h: PanelHandlers): Panel {
     setTimeout(() => (logBtn.textContent = "Protokoll kopieren"), 2000);
   });
 
-  body.append(styleRow, instrToggle, instr, instrHint, actions, notice, status, list, foot);
+  body.append(styleRow, instr, actions, notice, status, list, foot);
   card.append(head, body);
   root.append(card);
   doc.body.append(host);
@@ -278,7 +258,7 @@ export function createPanel(doc: Document, h: PanelHandlers): Panel {
     },
     setInstructions(text) {
       instr.value = text;
-      markInstr();
+      grow();
     },
     setLayout(patch) {
       layout = { ...layout, ...patch };

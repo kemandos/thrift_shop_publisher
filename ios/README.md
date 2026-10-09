@@ -74,7 +74,7 @@ ios/
 - **Generated files.** `xcodegen` writes `Thrift.xcodeproj`, both `Info.plist` files and both `.entitlements` files from `project.yml`. They are gitignored, so edit `project.yml` instead.
 - **Web extension resources.** The `ThriftExtension` target has a pre-build *Run Script* phase that runs `scripts/copy-web-extension.sh`. The script copies the contents of `extension/.output/safari-mv3/` into the **root** of `ThriftExtension.appex`, which is where Safari looks for `manifest.json`. A folder reference is not used, because it would put the files in a subfolder of the bundle where Safari does not look. If the build is missing, the script fails with an error that names the pnpm command to run. To use another build folder, set `WEB_EXTENSION_DIR`. User script sandboxing is turned off for this target, because the script reads outside `ios/`.
 - **Native messaging.** The extension's background script calls `browser.runtime.sendNativeMessage("app.thrift.companion.extension", msg)`, which Safari passes to `SafariWebExtensionHandler`:
-  - `{type:"getSettings"}` → `{settings:{mode?, apiKey?, serverUrl?, serverToken?, language?, tone?, closingTextDe?, closingTextEn?}}`. Only keys that are set are included.
+  - `{type:"getSettings"}` → `{settings:{mode?, apiKey?, serverUrl?, serverToken?, language?, tone?}}`. Only keys that are set are included.
   - `{type:"heartbeat"}` → stores `lastSeen` in the App Group and replies `{ok:true}`. The app's status row reads this value. iOS has no API that tells an app whether its Safari extension is turned on, so the heartbeat is the only signal.
   - Anything else → `{error:"unknown_message"}`.
 - **Storage.**

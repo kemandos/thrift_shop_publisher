@@ -36,7 +36,7 @@ API keys and tokens SHALL be stored only in the extension's local storage on tha
 - **THEN** only its last 4 characters are shown
 
 ### Requirement: Listing defaults
-The settings SHALL let the user choose the default language (Deutsch, English) and tone from lists, and set an optional closing text per language.
+The settings SHALL let the user choose the default language (Deutsch, English) and tone from lists. There is no closing text; the own instruction lives in the panel.
 
 #### Scenario: Default English
 - **WHEN** the default language is set to English

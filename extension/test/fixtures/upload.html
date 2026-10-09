@@ -150,6 +150,19 @@
       color: row("Farbe", "Wähle bis zu 2 Farben"),
       material: row("Material (empfohlen)", "Wähle ein Material"),
     };
+    // ?autodetect=1: like vinted.de, category and brand are suggested from title/description.
+    if (params.get("autodetect") === "1") {
+      let t = null;
+      document.getElementById("description").addEventListener("input", () => {
+        clearTimeout(t);
+        t = setTimeout(() => {
+          inputs.category.value = "Strickpullover";
+          state.category = ["Damen", "Kleidung", "Pullover & Sweatshirts", "Strickpullover"];
+          const brand = BRANDS.find((b) => state.title.includes(b));
+          if (brand) { inputs.brand.value = brand; state.brand = brand; }
+        }, 700);
+      });
+    }
     if (params.get("preset")) { inputs.category.value = params.get("preset"); state.category = ["(preset)", params.get("preset")]; }
 
     const choose = (key, value, display) => { state[key] = value; inputs[key].value = display; closeOpen(); };

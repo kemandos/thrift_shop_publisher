@@ -83,7 +83,11 @@ export const CHOOSE_SYSTEM = `You map an item's facts to exactly one option of a
 
 export function chooseUserText(req: ChooseRequest): string {
   const path = req.pathSoFar.length ? `\nCategory path chosen so far: ${req.pathSoFar.join(" › ")}` : "";
-  return `Field: ${req.field}${path}\nFacts (JSON):\n${JSON.stringify(req.attributes)}\n\nOptions:\n${req.options
+  const rule =
+    req.field === "category"
+      ? "\nThis is one level of Vinted's category tree. Classify the item: pick the option that fits it best (department first: Damen/Herren/Kinder/…, then the closest sub-category). Never answer null here unless no option has anything to do with clothing or the item."
+      : "";
+  return `Field: ${req.field}${path}${rule}\nFacts (JSON):\n${JSON.stringify(req.attributes)}\n\nOptions:\n${req.options
     .map((o) => `- ${o}`)
     .join("\n")}`;
 }

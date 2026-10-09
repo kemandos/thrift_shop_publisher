@@ -54,9 +54,7 @@ describe("settings", () => {
     expect(mergeSettings({ customPrompt: "x".repeat(401) }, {}).customPrompt).toBe("");
   });
 
-  it("uses the closing text of the chosen language", () => {
-    const s = mergeSettings({ closingTextDe: "Versand in 2 Tagen.", closingTextEn: "Ships in 2 days." }, {});
-    expect(styleFrom(s).closingText).toBe("Versand in 2 Tagen.");
-    expect(styleFrom(s, { language: "en" }).closingText).toBe("Ships in 2 days.");
+  it("has no closing text any more", () => {
+    expect(styleFrom(mergeSettings({}, {})).closingText).toBe("");
   });
 });

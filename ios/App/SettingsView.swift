@@ -14,8 +14,6 @@ struct SettingsView: View {
     @State private var tokenHint: String?
     @State private var language: ListingLanguage = .de
     @State private var tone: Tone = .sachlich
-    @State private var closingDe = ""
-    @State private var closingEn = ""
     @State private var errorMessage: String?
     @State private var saveCount = 0
     @State private var justSaved = false
@@ -76,17 +74,6 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    TextField("Deutsch", text: $closingDe, axis: .vertical)
-                        .lineLimit(2...6)
-                    TextField("English", text: $closingEn, axis: .vertical)
-                        .lineLimit(2...6)
-                } header: {
-                    Text("Schlusstext")
-                } footer: {
-                    Text("Optional. Wird in der jeweiligen Sprache unter die Beschreibung gesetzt.")
-                }
-
-                Section {
                     Button(action: save) {
                         Label(justSaved ? "Gespeichert" : "Speichern",
                               systemImage: justSaved ? "checkmark" : "square.and.arrow.down")
@@ -120,8 +107,6 @@ struct SettingsView: View {
         tokenHint = store.secret(.serverToken).map(SettingsStore.masked)
         language = store.language ?? .de
         tone = store.tone ?? .sachlich
-        closingDe = store.closingTextDe ?? ""
-        closingEn = store.closingTextEn ?? ""
     }
 
     private func save() {
@@ -149,8 +134,6 @@ struct SettingsView: View {
         store.serverUrl = url
         store.language = language
         store.tone = tone
-        store.closingTextDe = closingDe
-        store.closingTextEn = closingEn
 
         errorMessage = nil
         saveCount += 1

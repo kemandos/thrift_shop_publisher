@@ -26,9 +26,7 @@ export const Settings = z.object({
   serverToken: z.string().default(""),
   language: Language.default("de"),
   tone: Tone.default("freundlich"),
-  closingTextDe: z.string().default(""),
-  closingTextEn: z.string().default(""),
-  /** Own instruction for the listing text (wording only; see prompts.ts "seller wishes"). */
+  /** Own instruction for the listing text, entered in the panel next to "Ausfüllen" (wording only). */
   customPrompt: z.string().max(MAX_CUSTOM_INSTRUCTIONS).catch(""),
   noticeAccepted: z.boolean().default(false),
   /** Panel position on vinted.de (per device, so the iPhone and the Mac can differ). */
@@ -51,8 +49,6 @@ const NATIVE_KEYS = [
   "serverToken",
   "language",
   "tone",
-  "closingTextDe",
-  "closingTextEn",
   "customPrompt",
 ] as const;
 
@@ -88,7 +84,7 @@ export function styleFrom(
   return {
     language,
     tone,
-    closingText: language === "de" ? s.closingTextDe : s.closingTextEn,
+    closingText: "",
     customInstructions: (override?.customPrompt ?? s.customPrompt).trim().slice(0, MAX_CUSTOM_INSTRUCTIONS),
   };
 }

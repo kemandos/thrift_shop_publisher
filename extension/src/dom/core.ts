@@ -83,16 +83,16 @@ export interface Pacer {
 }
 
 /**
- * Human-like pacing: 450–1100 ms between steps, 50–160 ms inside a gesture. Slow on purpose, so the
- * form is filled at a person's speed. Tests pass pacer(0, 0) (and get tap = 0 as well).
+ * Human-like pacing: 250–650 ms between steps, 30–110 ms inside a gesture – a quick person, not a
+ * script. Tests pass pacer(0, 0) (and get tap = 0 as well).
  */
-export function pacer(min = 450, max = 1100): Pacer {
+export function pacer(min = 250, max = 650): Pacer {
   const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
   const rnd = (lo: number, hi: number) => lo + Math.random() * (hi - lo);
   const fast = max === 0;
   return {
     step: () => wait(rnd(min, max)),
-    tap: () => (fast ? Promise.resolve() : wait(rnd(50, 160))),
+    tap: () => (fast ? Promise.resolve() : wait(rnd(30, 110))),
     wait,
   };
 }

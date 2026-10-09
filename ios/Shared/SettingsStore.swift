@@ -45,8 +45,6 @@ struct SettingsStore {
         static let serverUrl = "serverUrl"
         static let language = "language"
         static let tone = "tone"
-        static let closingTextDe = "closingTextDe"
-        static let closingTextEn = "closingTextEn"
         static let lastSeen = "lastSeen"
     }
 
@@ -77,16 +75,6 @@ struct SettingsStore {
     var serverUrl: String? {
         get { text(Key.serverUrl) }
         nonmutating set { setText(newValue, Key.serverUrl) }
-    }
-
-    var closingTextDe: String? {
-        get { text(Key.closingTextDe) }
-        nonmutating set { setText(newValue, Key.closingTextDe) }
-    }
-
-    var closingTextEn: String? {
-        get { text(Key.closingTextEn) }
-        nonmutating set { setText(newValue, Key.closingTextEn) }
     }
 
     /// Last time the Safari extension sent a `heartbeat` native message.
@@ -123,8 +111,6 @@ struct SettingsStore {
         settings["serverToken"] = secret(.serverToken)
         settings["language"] = language?.rawValue
         settings["tone"] = tone?.rawValue
-        settings["closingTextDe"] = closingTextDe
-        settings["closingTextEn"] = closingTextEn
         return settings
     }
 

@@ -67,19 +67,33 @@ The extension SHALL NOT click Vinted's upload button, SHALL NOT call Vinted APIs
 - **WHEN** filling has finished
 - **THEN** the item is not uploaded until the user clicks Vinted's "Hochladen"
 
-### Requirement: Category like a person picks it
-The category SHALL be set in this order: keep a category Vinted already shows that matches; take a visible suggestion whose leaf and department match; type the leaf into the picker's search box and take the result whose shown path fits (ties decided by the AI); only then walk the tree. A suggestion for a different department (e.g. Herren instead of Damen) SHALL never be taken.
+### Requirement: Vinted's own detection first
+After filling title, description and price, the extension SHALL wait up to about 5 seconds for Vinted to detect category and brand from the text, and SHALL keep whatever Vinted (or the user) has set; it never overwrites a set category or brand.
 
-#### Scenario: Wrong suggestion
-- **WHEN** Vinted suggests "Strickpullover — Herren > Kleidung > Pullover" for a women's sweater
-- **THEN** Thrift searches and selects "Strickpullover — Damen > Kleidung > Pullover & Sweatshirts"
+#### Scenario: Vinted detects both
+- **WHEN** Vinted fills category and brand from the description
+- **THEN** the extension does not open those pickers
+
+### Requirement: Category by classification when not detected
+If Vinted does not detect the category, the extension SHALL open the category dropdown and classify level by level (department, then the closest sub-category, down to a leaf), taking a Vinted suggestion only if its department matches. It SHALL not search, SHALL stop after at most 6 levels, and SHALL offer the category as a copy value when no leaf is set.
+
+#### Scenario: Skirt not detected
+- **WHEN** the item is a skirt and Vinted shows no category
+- **THEN** the extension clicks Damen, then the closest group, then the closest leaf such as "Röcke" or a sub-type
+
+### Requirement: Brand only with an exact match
+If Vinted does not detect the brand, the extension SHALL type it into the brand search and select it only when an option matches the name exactly; otherwise the brand is offered as a copy value.
+
+#### Scenario: Similar name only
+- **WHEN** the photos show "Cosmo" and the brand list only has "COS"
+- **THEN** no brand is selected and "Cosmo" is offered to copy
 
 ### Requirement: Confirmed selection at a person's pace
 A field SHALL only count as filled when the form shows the chosen value. Clicks SHALL be mouse-like and paced like a person, and pickers that are only shown (not added) on open SHALL be recognised.
 
 #### Scenario: Pace and gestures
 - **WHEN** the extension opens a picker, types a search or chooses an option
-- **THEN** it hovers, presses and releases with real coordinates, types key by key, and pauses about half a second to a second between steps
+- **THEN** it hovers, presses and releases with real coordinates, types key by key, and pauses about a quarter to two thirds of a second between steps
 
 #### Scenario: Retry inside the option
 - **WHEN** a click on an option does not make the field show it

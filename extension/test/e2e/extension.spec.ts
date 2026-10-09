@@ -94,6 +94,7 @@ test("panel appears only on the upload page and requires photos", async () => {
 });
 
 test("first fill shows the notice; after 'Verstanden' it fills everything via the server and never uploads", async () => {
+  test.setTimeout(120_000); // real human pacing + waiting for Vinted's own detection
   const { ctx, sw } = await launch();
   await setSettings(sw, { serverUrl, serverToken: TOKEN, noticeAccepted: false });
   const page = await ctx.newPage();
@@ -104,11 +105,10 @@ test("first fill shows the notice; after 'Verstanden' it fills everything via th
   expect(hits.filter((h) => h.includes("/v1/analyze"))).toHaveLength(0);
   await page.getByTestId("thrift-notice-ok").click();
   await expect(page.getByTestId("thrift-notice")).toBeHidden();
-  // Own instruction for this item, entered in the panel.
-  await page.getByTestId("thrift-instructions-toggle").click();
+  // Own instruction, right next to "Ausfüllen", sent with this fill.
   await page.getByTestId("thrift-instructions").fill("Erwähne: Nichtraucherhaushalt");
   await page.getByTestId("thrift-fill").click();
-  await expect(page.getByText("Fertig – bitte prüfen und selbst hochladen")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText("Fertig – bitte prüfen und selbst hochladen")).toBeVisible({ timeout: 60_000 });
   const state = await page.evaluate(() => (window as any).__state);
   expect(state).toMatchObject({
     title: STUB_TEXT.title,
@@ -123,6 +123,12 @@ test("first fill shows the notice; after 'Verstanden' it fills everything via th
   expect(state.category).toEqual(["Damen", "Kleidung", "Pullover & Sweatshirts", "Strickpullover"]);
   expect(hits).toContain("photos:2");
   expect(hits).toContain("wishes:Erwähne: Nichtraucherhaushalt");
+  // The instruction is remembered for the next item.
+  const saved = await sw.evaluate(async () => {
+    // @ts-expect-error chrome is available in the extension service worker
+    return (await chrome.storage.local.get("settings")).settings.customPrompt;
+  });
+  expect(saved).toBe("Erwähne: Nichtraucherhaushalt");
   await expect(page.getByTestId("thrift-rewrite")).toBeVisible();
   // The fill log can be copied for troubleshooting.
   await expect(page.getByTestId("thrift-log")).toBeVisible();
@@ -158,8 +164,8 @@ test("options page: language/tone are lists, key is stored masked, popup opens t
   await page.locator("input[name=model][value='typesafe/jev-router']").check();
   await page.fill("#apiKey", "sk-or-test-key-3fA9");
   await page.locator("input[name=language][value=en]").check();
-  await page.fill("#customPrompt", "Kurze Sätze, erwähne Nichtraucherhaushalt");
-  await expect(page.locator("#customPromptCount")).toHaveText("41 / 400");
+  await expect(page.locator("#customPrompt")).toHaveCount(0); // own instruction lives in the panel
+  await expect(page.locator("#closingTextDe")).toHaveCount(0); // closing text removed
   await page.click("#save");
   await expect(page.locator("#apiKeyMasked")).toHaveText("Gespeichert: ••••••••3fA9");
   await expect(page.locator("#apiKey")).toHaveValue("");
@@ -173,7 +179,6 @@ test("options page: language/tone are lists, key is stored masked, popup opens t
     model: "typesafe/jev-router",
     navModel: "typesafe/jev-router",
     language: "en",
-    customPrompt: "Kurze Sätze, erwähne Nichtraucherhaushalt",
   });
 
   const popup = await ctx.newPage();

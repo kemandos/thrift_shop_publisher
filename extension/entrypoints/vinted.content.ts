@@ -35,6 +35,7 @@ export default defineContentScript({
     let language = settings.language;
     let tone = settings.tone;
     let instructions = settings.customPrompt;
+    let saveInstr: ReturnType<typeof setTimeout> | undefined;
     let lastAttributes: Attributes | null = null;
     let busy = false;
 
@@ -112,6 +113,9 @@ export default defineContentScript({
       },
       onInstructionsChange: (text) => {
         instructions = text;
+        // Remembered for the next item (saved quietly, no settings page needed).
+        clearTimeout(saveInstr);
+        saveInstr = setTimeout(() => void saveSettings({ customPrompt: text.trim() }).catch(() => {}), 600);
         if (lastAttributes) panel.setStatus("Tippe „Neu schreiben“, um die Anweisung anzuwenden.");
       },
       onStyleChange: (l, t) => {

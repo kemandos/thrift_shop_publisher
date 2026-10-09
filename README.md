@@ -3,7 +3,7 @@
 A personal helper for selling clothes on **Vinted**, on the computer (Chrome) and the iPhone (Safari):
 
 1. Open **vinted.de → Artikel verkaufen** and add your photos as usual.
-2. Tap **✨ Ausfüllen**. The AI looks at the photos, reads the size from the label, and fills in title, description, category, brand, size, condition, colour and price, in **German or English** and in your chosen tone.
+2. Optionally type an own instruction in the panel (e.g. "Erwähne: Nichtraucherhaushalt"), then tap **✨ Ausfüllen**. The AI looks at the photos, reads the size from the label, and fills in title, description and price, in **German or English** and in your chosen tone. Vinted usually detects category and brand from that text; if not, Thrift picks the category level by level and the brand only on an exact match. Then size, condition, colour and material.
 3. Check it and tap **Hochladen** yourself. Thrift never uploads on its own.
 
 Models come from **OpenRouter**, with one key for both:
