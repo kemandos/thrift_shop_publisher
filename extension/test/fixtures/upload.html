@@ -69,7 +69,7 @@
   document.getElementById("itemForm").addEventListener("submit", (e) => { e.preventDefault(); state.submitted = true; });
 
   const TREE = {
-    Damen: { Kleidung: { "Pullover & Sweatshirts": ["Strickpullover", "Sweatshirts", "Hoodies"], Jeans: ["Skinny", "Straight"], Kleider: ["Minikleider", "Maxikleider"] }, Schuhe: ["Sneaker", "Stiefel"] },
+    Damen: { Kleidung: { "Pullover & Sweatshirts": ["Strickpullover", "Sweatshirts", "Hoodies"], Jeans: ["Skinny", "Straight"], Kleider: ["Minikleider", "Maxikleider"], "Röcke": ["Miniröcke", "Midiröcke"], Shorts: ["Shorts mit hoher Taille", "Jeansshorts"] }, Schuhe: ["Sneaker", "Stiefel"] },
     Herren: { Kleidung: { Pullover: ["Strickpullover"], Jeans: ["Slim"] } },
     Kinder: ["Mädchen", "Jungen"],
     Haus: ["Deko"],
@@ -112,8 +112,10 @@
     const noSearch = params.get("nosearch") === "1";
     const details = document.getElementById("details");
     const mk = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
-    const row = (label, placeholder) => {
+    const dependentRows = [];
+    const row = (label, placeholder, dependent = true) => {
       const f = mk("div", "field");
+      if (dependent) { f.style.display = "none"; dependentRows.push(f); }
       f.append(mk("span", "", label));
       const input = mk("input");
       input.readOnly = true; input.placeholder = placeholder;
@@ -143,7 +145,7 @@
     const VTREE = { ...TREE };
 
     const inputs = {
-      category: row("Kategorie", "Wähle eine Kategorie"),
+      category: row("Kategorie", "Wähle eine Kategorie", false),
       brand: row("Marke", "Wähle eine Marke"),
       size: row("Größe", "Wähle eine Größe"),
       condition: row("Zustand", "Wähle einen Zustand"),
@@ -151,6 +153,18 @@
       material: row("Material (empfohlen)", "Wähle ein Material"),
     };
     // ?autodetect=1: like vinted.de, category and brand are suggested from title/description.
+    if (params.get("autodetect") === "rock") {
+      // Vinted guesses wrong: a skirt for shorts.
+      let t = null;
+      document.getElementById("description").addEventListener("input", () => {
+        clearTimeout(t);
+        t = setTimeout(() => {
+          inputs.category.value = "Miniröcke";
+          state.category = ["Damen", "Kleidung", "Röcke", "Miniröcke"];
+          showDetails();
+        }, 700);
+      });
+    }
     if (params.get("autodetect") === "1") {
       let t = null;
       document.getElementById("description").addEventListener("input", () => {
@@ -158,14 +172,28 @@
         t = setTimeout(() => {
           inputs.category.value = "Strickpullover";
           state.category = ["Damen", "Kleidung", "Pullover & Sweatshirts", "Strickpullover"];
+          showDetails();
           const brand = BRANDS.find((b) => state.title.includes(b));
           if (brand) { inputs.brand.value = brand; state.brand = brand; }
         }, 700);
       });
     }
-    if (params.get("preset")) { inputs.category.value = params.get("preset"); state.category = ["(preset)", params.get("preset")]; }
 
-    const choose = (key, value, display) => { state[key] = value; inputs[key].value = display; closeOpen(); };
+    // Like vinted.de: brand, size, … (and extras such as "Rocklänge" for skirts) appear once a category is set.
+    const showDetails = () => {
+      dependentRows.forEach((f) => (f.style.display = ""));
+      if (state.category.includes("Röcke") && !document.getElementById("rockLength")) {
+        const input = row("Rocklänge", "Wähle eine Rocklänge", false);
+        input.id = "rockLength";
+        input.addEventListener("click", () => {
+          const panel = makePanel(input);
+          for (const l of ["Mini", "Knielang", "Midi", "Maxi"]) panel.append(cell(l, "", () => { state.rockLength = l; input.value = l; closeOpen(); }));
+        });
+      }
+    };
+    const choose = (key, value, display) => { state[key] = value; inputs[key].value = display; closeOpen(); if (key === "category") showDetails(); };
+    if (params.get("preset")) { inputs.category.value = params.get("preset"); state.category = ["(preset)", params.get("preset")]; showDetails(); }
+
 
     inputs.category.addEventListener("click", () => {
       const panel = makePanel(inputs.category);
@@ -177,7 +205,10 @@
       const renderHome = () => {
         body.replaceChildren();
         body.append(mk("div", "section", "Vorgeschlagen"));
-        body.append(cell("Strickpullover", "Herren > Kleidung > Pullover", () => pickLeaf({ name: "Strickpullover", path: ["Herren", "Kleidung", "Pullover"] })));
+        if (params.get("suggest") === "shorts")
+          body.append(cell("Shorts mit hoher Taille", "Damen > Kleidung > Shorts", () => pickLeaf({ name: "Shorts mit hoher Taille", path: ["Damen", "Kleidung", "Shorts"] })));
+        else
+          body.append(cell("Strickpullover", "Herren > Kleidung > Pullover", () => pickLeaf({ name: "Strickpullover", path: ["Herren", "Kleidung", "Pullover"] })));
         body.append(mk("div", "section", "Katalog-Kategorien"));
         const list = mk("div"); body.append(list);
         let node = VTREE; const path = [];

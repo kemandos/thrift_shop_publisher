@@ -12,12 +12,13 @@ import {
   type PickElementResult,
 } from "@thrift/shared";
 import { displayedValue, locateField } from "../dom/locate";
-import { humanClick, isVisible, norm, setNativeValue, type Pacer } from "../dom/core";
+import { humanClick, isVisible, norm, setNativeValue, typeText, type Pacer } from "../dom/core";
 import {
   closePicker,
   matchOption,
   nextLevel,
   openPicker,
+  type LevelResult,
   pathSegments,
   pickByPath,
   searchInPicker,
@@ -31,9 +32,11 @@ export interface AiApi {
   analyze(p: { photos: Photo[]; style: ListingStyle; categoryOptions: string[] }): Promise<AiResponse<AnalyzeResult>>;
   rewrite(p: { attributes: Attributes; style: ListingStyle }): Promise<AiResponse<ListingText>>;
   choose(p: {
-    field: "category" | "size" | "condition" | "color" | "brand" | "material";
+    field: "category" | "size" | "condition" | "color" | "brand" | "material" | "other";
+    fieldLabel?: string;
     attributes: Attributes;
     pathSoFar?: string[];
+    mode?: "tree" | "suggestions";
     options: string[];
   }): Promise<AiResponse<ChooseResult>>;
   pickElement(p: { goal: string; elements: { id: string; role: string; label: string; text: string }[] }): Promise<
@@ -103,7 +106,7 @@ export function suggestedPrice(a: Attributes): number {
 }
 
 /** Field → element, with AI element picking as fallback when the form map does not match. */
-async function resolve(ctx: FillContext, key: FieldKey): Promise<Element | null> {
+async function resolve(ctx: FillContext, key: FieldKey, aiFallback = true): Promise<Element | null> {
   const spec = ctx.map.fields[key];
   if (!spec) return null;
   const el = locateField(spec, ctx.doc);
@@ -111,6 +114,8 @@ async function resolve(ctx: FillContext, key: FieldKey): Promise<Element | null>
     ctx.log?.(`${key}: Feld ${describe(el)}`);
     return el;
   }
+  // Fields that only exist after a category is chosen are not searched for with the AI.
+  if (!aiFallback) return null;
   const elements = snapshotElements(ctx.doc, ctx.map.forbiddenClickText);
   if (!elements.length) return null;
   try {
@@ -133,9 +138,21 @@ async function resolve(ctx: FillContext, key: FieldKey): Promise<Element | null>
   }
 }
 
+/** "12,00 €" → 12 */
+const amount = (s: string) => Number((s.match(/\d+(?:[.,]\d+)?/)?.[0] ?? "NaN").replace(",", "."));
+
 async function fillText(ctx: FillContext, key: FieldKey, value: string): Promise<boolean> {
   const el = await resolve(ctx, key);
   if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) return false;
+  if (key === "price" && el instanceof HTMLInputElement) {
+    // Vinted formats the price itself ("17,00 €"): type it like a person and compare the amount.
+    await typeText(el, value, ctx.pace);
+    el.blur();
+    await ctx.pace.step();
+    const ok = await waitUntil(() => amount(el.value) === Number(value), 1500);
+    ctx.log?.(`price: getippt „${value}“, Feld zeigt „${el.value}“`);
+    return ok;
+  }
   setNativeValue(el, value);
   await ctx.pace.step();
   return el.value === value;
@@ -251,6 +268,7 @@ async function selectOption(
 }
 
 async function fillList(ctx: FillContext, key: ChooseField, attrs: Attributes, want: string | null): Promise<string | null> {
+  // Only called once the category is set, so the fields exist: the AI may help find renamed ones.
   const trigger = await resolve(ctx, key);
   if (!trigger) {
     ctx.log?.(`${key}: Feld nicht gefunden`);
@@ -301,14 +319,6 @@ async function fillList(ctx: FillContext, key: ChooseField, attrs: Attributes, w
   return null;
 }
 
-/** Clicks a leaf option and confirms the trigger shows it (or the picker closed). */
-async function selectLeaf(ctx: FillContext, session: PickerSession, pick: Option): Promise<string[] | null> {
-  await ctx.pace.step();
-  const ok = await selectOption(ctx, "category", pick, () => hasValue(session.trigger, pick.label));
-  ctx.log?.(`category: gewählt „${pick.label}“ (${pick.detail}), Feld zeigt „${displayedValue(session.trigger)}“`);
-  if (pick.el.isConnected && isVisible(pick.el)) await closePicker(session.trigger, ctx.doc);
-  return ok ? [...pathSegments(pick.detail), pick.label] : null;
-}
 
 
 /** Rows that are navigation, not a category ("Zurück", "Alle"). */
@@ -322,22 +332,87 @@ const NAV_ROW = /^(zuruck|zurück|back|alle|all|alles anzeigen|show all)$/;
  * Bounded (max 6 levels, every wait has a timeout), so it never gets stuck; on doubt it stops and the
  * category is offered as a copy value.
  */
+/** Picks the tree option for the analysed path: any remaining path segment may match (paths can skip levels). */
+function matchPathLevel(options: Option[], want: string[], cursor: number): { pick: Option; next: number } | null {
+  for (let i = cursor; i < want.length; i++) {
+    const pick = matchOption(options, want[i]);
+    if (pick) return { pick, next: i + 1 };
+  }
+  return null;
+}
+
+/**
+ * Vinted's suggestions ("Shorts mit hoher Taille — Damen > Kleidung > Shorts") are taken directly – no
+ * extra AI call – when they agree with the analysis: an exact path match, or same department and the
+ * same kind of garment. Vinted can be wrong (it suggested a skirt for shorts), so nothing else is taken.
+ */
+function chooseSuggestion(ctx: FillContext, attrs: Attributes, suggestions: Option[], want: string[]): Option | null {
+  if (!suggestions.length) return null;
+  const dept = norm(want[0]);
+  const pick =
+    pickByPath(suggestions, want).pick ??
+    suggestions.find(
+      (o) =>
+        (!dept || norm(pathSegments(o.detail)[0]) === dept) &&
+        sameKind(`${o.label} ${pathSegments(o.detail).slice(1).join(" ")}`, [attrs.itemType, ...want.slice(1)]),
+    ) ??
+    null;
+  ctx.log?.(`category: Vinted-Vorschläge ${optionList(suggestions)} → ${pick ? `passt: ${pick.label}` : "passt nicht zur Analyse"}`);
+  return pick;
+}
+
+/** How well an option fits the analysis without asking the AI (shared word stems with path/item type). */
+function kindScore(label: string, words: string[]): number {
+  const stems = (x: string) =>
+    norm(x)
+      .split(/[^\p{L}\p{N}]+/u)
+      .filter((w) => w.length >= 4 && !GENERIC_WORD.test(w));
+  const ws = words.flatMap(stems);
+  return stems(label).filter((c) => ws.some((w) => w.includes(c.slice(0, 4)) || c.includes(w.slice(0, 4)))).length;
+}
+
+/**
+ * Category when Vinted did not set it itself – like a person:
+ * 1. Vinted's suggestions (with path): only one that agrees with the analysis,
+ * 2. otherwise click through the tree level by level: a matching path segment, else the AI picks the
+ *    closest option. A click that does not take is retried on the row's inner targets (radio, label, text).
+ * Bounded (max 7 levels, timeouts everywhere), so it never gets stuck.
+ */
 async function fillCategory(ctx: FillContext, attrs: Attributes, trigger: Element): Promise<string[] | null> {
   const want = attrs.categoryPath.filter(Boolean);
-  ctx.log?.(`category: nicht von Vinted erkannt – klassifiziere selbst (Ziel ${want.join(" › ") || attrs.itemType})`);
+  ctx.log?.(`category: nicht von Vinted gesetzt – klassifiziere selbst (Ziel ${want.join(" › ") || attrs.itemType})`);
+  const forbidden = ctx.map.forbiddenClickText;
+  // Also used to replace a wrong category Vinted set itself: success means the field changed.
   const before = displayedValue(trigger);
+  const isPath = (o: Option) => /[\p{L}\p{N}]\s*[>›]\s*[\p{L}\p{N}]/u.test(o.detail);
   return withPicker(ctx, "category", trigger, async (session) => {
-    const visible = pickByPath(session.options, want);
-    if (visible.pick) return selectLeaf(ctx, session, visible.pick);
+    const changed = () => looksSet(trigger) && displayedValue(trigger) !== before;
+    const suggestion = chooseSuggestion(ctx, attrs, session.options.filter(isPath), want);
+    if (suggestion) {
+      await ctx.pace.step();
+      if (await selectOption(ctx, "category", suggestion, changed)) {
+        await closeIfOpen(ctx, session);
+        return [...pathSegments(suggestion.detail), suggestion.label];
+      }
+    }
 
-    const forbidden = ctx.map.forbiddenClickText;
-    // Tree rows only: no suggestions (they carry a path line) and no navigation rows.
-    const treeRows = (opts: Option[]) =>
-      opts.filter((o) => !/[\p{L}\p{N}]\s*[>›]\s*[\p{L}\p{N}]/u.test(o.detail) && !NAV_ROW.test(norm(o.label)));
-    let options = treeRows(session.options);
+    // Tree rows only: no suggestions and no navigation rows.
+    const treeRows = (opts: Option[]) => opts.filter((o) => !isPath(o) && !NAV_ROW.test(norm(o.label)));
+    let options = treeRows(session.scan().length ? session.scan() : session.options);
     const path: string[] = [];
-    for (let level = 0; options.length && level < 6; level++) {
-      let pick = matchOption(options, want[level]);
+    let cursor = 0;
+    for (let level = 0; options.length && level < 7; level++) {
+      const m = matchPathLevel(options, want, cursor);
+      let pick = m?.pick ?? null;
+      if (m) cursor = m.next;
+      else {
+        // Similar names (no AI): "Shorts" for "Shorts & Bermudas", "Pullover & Sweater" for "Strickpullover".
+        const scored = options
+          .map((o) => ({ o, score: kindScore(o.label, [...want.slice(cursor), attrs.itemType]) }))
+          .filter((x) => x.score > 0)
+          .sort((x, y) => y.score - x.score);
+        if (scored.length && (scored.length === 1 || scored[0]!.score > scored[1]!.score)) pick = scored[0]!.o;
+      }
       if (!pick) {
         try {
           const { result } = await ctx.ai.choose({
@@ -353,20 +428,31 @@ async function fillCategory(ctx: FillContext, attrs: Attributes, trigger: Elemen
         ctx.log?.(`category: Ebene ${level + 1}: KI wählt „${pick?.label ?? "–"}“ aus ${optionList(options)}`);
       }
       if (!pick) break;
-      await ctx.pace.step();
-      await humanClick(pick.el, forbidden, ctx.pace);
       path.push(pick.label);
       await ctx.pace.step();
-      const next = await nextLevel(session, options);
-      if (next === null) break; // leaf selected (picker closed) or nothing new
-      options = treeRows(next);
+      // Click until something happens: next level, picker closed, or the field shows a value.
+      let outcome: LevelResult = { kind: "same" };
+      for (const t of clickTargets(pick.el, pick.label)) {
+        if (!t.isConnected) break;
+        await humanClick(t, forbidden, ctx.pace);
+        outcome = await nextLevel(session, options);
+        if (outcome.kind !== "same" || changed()) break;
+        ctx.log?.(`category: Klick auf ${describe(t)} bei „${pick.label}“ – keine Reaktion`);
+        await ctx.pace.tap();
+      }
+      if (changed() && outcome.kind !== "next") break; // leaf chosen
+      if (outcome.kind !== "next") break;
+      options = treeRows(outcome.options);
     }
-    const now = displayedValue(trigger);
-    const ok = path.length > 0 && now !== before && !!now.trim();
-    ctx.log?.(`category: ${ok ? "gewählt" : "nicht gesetzt"} ${path.join(" › ")}, Feld zeigt „${now}“`);
-    if (session.options.some((o) => o.el.isConnected && isVisible(o.el))) await closePicker(trigger, ctx.doc);
+    const ok = changed();
+    ctx.log?.(`category: ${ok ? "gewählt" : "nicht gesetzt"} ${path.join(" › ")}, Feld zeigt „${displayedValue(trigger)}“`);
+    await closeIfOpen(ctx, session);
     return ok ? path : null;
   });
+}
+
+async function closeIfOpen(ctx: FillContext, session: PickerSession): Promise<void> {
+  if (session.scan().some((o) => o.el.isConnected && isVisible(o.el))) await closePicker(session.trigger, ctx.doc);
 }
 
 /** The whole fill: AI analysis from the photos, then every field. Never submits. */
@@ -377,6 +463,76 @@ export async function fillForm(ctx: FillContext, photos: Photo[], style: Listing
   } finally {
     release();
   }
+}
+
+/** Words that say nothing about the kind of garment. */
+const GENERIC_WORD = /^(damen|herren|kinder|madchen|jungen|kleidung|mode|sonstige|sonstiges|andere|other|women|men|kids|clothing)$/;
+
+/**
+ * Rough check that Vinted's category and the analysis talk about the same kind of garment
+ * ("Röcke" ~ "Minirock", "Shorts mit hoher Taille" ~ "Shorts"; "Röcke" ≁ "Shorts").
+ */
+export function sameKind(category: string, analysed: string[]): boolean {
+  const words = (x: string) =>
+    norm(x)
+      .split(/[^\p{L}\p{N}]+/u)
+      .filter((w) => w.length >= 4 && !GENERIC_WORD.test(w));
+  const cat = words(category);
+  const ana = analysed.flatMap(words);
+  return cat.some((c) => ana.some((w) => w.includes(c.slice(0, 4)) || c.includes(w.slice(0, 4))));
+}
+
+/** Extra pickers Vinted shows for some categories ("Rocklänge", …): a "Wähle …" field we do not know. */
+async function fillExtraFields(ctx: FillContext, attrs: Attributes): Promise<void> {
+  const known = new Set(
+    Object.values(ctx.map.fields)
+      .map((spec) => (spec ? locateField(spec, ctx.doc) : null))
+      .filter((e): e is Element => !!e),
+  );
+  const extras = Array.from(ctx.doc.querySelectorAll<HTMLInputElement>("input[placeholder]")).filter(
+    (i) => /^w(ä|a)hle\b/i.test(i.placeholder) && !known.has(i) && !i.value && isVisible(i) && !i.closest("[data-thrift-ui]"),
+  );
+  for (const trigger of extras.slice(0, 4)) {
+    const label = fieldLabelOf(trigger);
+    ctx.log?.(`extra: Feld „${label}“ (${describe(trigger)})`);
+    ctx.status?.(`Wähle ${label} …`);
+    await withPicker(ctx, "extra" as FieldKey, trigger, async (session) => {
+      if (!session.options.length) return;
+      // Directly when the item type says it ("Minirock" → "Mini"); the AI only otherwise.
+      const itemWords = norm([attrs.itemType, ...attrs.categoryPath].join(" "));
+      const direct = session.options.filter((o) => norm(o.label).length >= 3 && itemWords.includes(norm(o.label)));
+      let pick: Option | null = direct.length === 1 ? direct[0]! : null;
+      if (!pick) try {
+        const { result } = await ctx.ai.choose({
+          field: "other",
+          fieldLabel: label.slice(0, 60),
+          attributes: attrs,
+          options: session.options.map((o) => o.label),
+        });
+        pick = result.choice ? (session.options.find((o) => o.label === result.choice) ?? null) : null;
+      } catch {
+        pick = null;
+      }
+      ctx.log?.(`extra: „${label}“ → ${pick ? `„${pick.label}“` : "offen gelassen"}`);
+      if (!pick) return closePicker(trigger, ctx.doc);
+      await ctx.pace.step();
+      await selectOption(ctx, "extra", pick, () => valueShown(trigger, pick!.label));
+      await closeIfOpen(ctx, session);
+    });
+  }
+}
+
+/** The visible label of a form row ("Rocklänge"), not the placeholder. */
+function fieldLabelOf(input: HTMLInputElement): string {
+  let el: Element | null = input.parentElement;
+  for (let d = 0; el && d < 5; d++, el = el.parentElement) {
+    const line = ((el as HTMLElement).innerText ?? "")
+      .split("\n")
+      .map((l) => l.trim())
+      .find((l) => l && l !== input.placeholder && /[\p{L}]/u.test(l));
+    if (line) return line.slice(0, 60);
+  }
+  return input.placeholder;
 }
 
 /** The field shows a chosen value (not empty, not a "Wähle …" / "Auswählen" prompt). */
@@ -427,40 +583,64 @@ async function fillFormUnlocked(ctx: FillContext, photos: Photo[], style: Listin
     }`,
   );
 
-  if (catByVinted) filled.push("category");
+  const attrs = a;
+  // Vinted's own category is kept only if it agrees with the analysis of the photos
+  // (Vinted suggested a skirt for shorts); otherwise Thrift picks the category itself.
+  const shownCat = catTrigger ? displayedValue(catTrigger).trim() : "";
+  const vintedAgrees = catByVinted && sameKind(shownCat, [a.itemType, ...a.categoryPath]);
+  let catEl = catTrigger;
+  if (vintedAgrees) filled.push("category");
   else {
+    if (catByVinted) ctx.log?.(`category: Vinted „${shownCat}“ passt nicht zur Analyse „${a.itemType}“ – wähle neu`);
     say("Wähle Kategorie …");
-    const trigger = catTrigger ?? (await resolve(ctx, "category"));
-    const cat = trigger ? await fillCategory(ctx, a, trigger).catch(failed("category")) : null;
+    catEl = catTrigger ?? (await resolve(ctx, "category"));
+    const cat = catEl ? await fillCategory(ctx, a, catEl).catch(failed("category")) : null;
     done("category", !!cat, a.categoryPath.join(" › "));
   }
-  // Brand: Vinted's detection first; otherwise search it and take only an exact match.
-  if (brandByVinted) filled.push("brand");
-  else if (a.brand) {
-    say("Wähle Marke …");
-    const chosen = await fillList(ctx, "brand", a, a.brand).catch(failed("brand"));
-    done("brand", !!chosen, a.brand);
-  }
+  const categorySet = filled.includes("category") || looksSet(catEl);
 
-  say("Wähle Größe, Zustand, Farbe …");
+  // Brand, size, condition, colour, material and extra fields only exist once a category is set.
   const lang = style.language;
   const steps: Array<[ChooseField, string | null]> = [
-    ["size", a.size],
-    ["condition", CONDITION_LABELS[a.condition][lang]],
-    ["color", a.colors[0] ?? null],
+    ["size", attrs.size],
+    ["condition", CONDITION_LABELS[attrs.condition][lang]],
+    ["color", attrs.colors[0] ?? null],
   ];
-  if (a.material) steps.push(["material", a.material]);
-  for (const [key, want] of steps) {
-    if (key === "size" && !want) {
-      unresolved.push({ key, label: FIELD_LABEL[key], value: "Größe nicht erkannt – bitte auswählen" });
-      continue;
+  if (attrs.material) steps.push(["material", attrs.material]);
+  if (!categorySet) {
+    ctx.log?.("Keine Kategorie gesetzt – Marke, Größe, Zustand, Farbe, Material erscheinen erst danach");
+    if (attrs.brand) unresolved.push({ key: "brand", label: FIELD_LABEL.brand, value: attrs.brand });
+    for (const [key, want] of steps) {
+      unresolved.push({ key, label: FIELD_LABEL[key], value: want ?? (key === "size" ? "Größe nicht erkannt – bitte auswählen" : "") });
     }
-    const chosen = await fillList(ctx, key, a, want).catch(failed(key));
-    done(key, !!chosen, want ?? "");
+  } else {
+    say("Warte auf die Felder zur Kategorie …");
+    const sizeSpec = ctx.map.fields.size;
+    await waitUntil(() => !!(sizeSpec && locateField(sizeSpec, ctx.doc)), 3000);
+
+    // Brand: Vinted's detection first; otherwise search it and take only an exact match.
+    if (looksSet(brandTrigger ?? (ctx.map.fields.brand ? locateField(ctx.map.fields.brand, ctx.doc) : null))) filled.push("brand");
+    else if (attrs.brand) {
+      say("Wähle Marke …");
+      const chosen = await fillList(ctx, "brand", attrs, attrs.brand).catch(failed("brand"));
+      done("brand", !!chosen, attrs.brand);
+    }
+
+    say("Wähle Größe, Zustand, Farbe …");
+    for (const [key, want] of steps) {
+      if (key === "size" && !want) {
+        unresolved.push({ key, label: FIELD_LABEL[key], value: "Größe nicht erkannt – bitte auswählen" });
+        continue;
+      }
+      const chosen = await fillList(ctx, key, attrs, want).catch(failed(key));
+      done(key, !!chosen, want ?? "");
+    }
+
+    await fillExtraFields(ctx, attrs).catch(failed("extra"));
   }
 
   say(unresolved.length ? "Fertig – bitte markierte Felder prüfen" : "Fertig – bitte prüfen und selbst hochladen");
-  return { filled, unresolved: unresolved.filter((u) => u.value), attributes: a, text };
+  return { filled, unresolved: unresolved.filter((u) => u.value), attributes: attrs, text };
 }
 
 /** Language/tone change or "Neu schreiben": text only, no photos sent again. */

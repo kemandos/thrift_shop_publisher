@@ -125,7 +125,7 @@ test.describe("vinted.de structure (div rows, search, suggestions)", () => {
     expect(state.colors).toEqual(["Beige"]);
     expect(state.submitted).toBe(false);
     const text = log.join("\n");
-    expect(text).toContain("category: nicht von Vinted erkannt – klassifiziere selbst");
+    expect(text).toContain("category: nicht von Vinted gesetzt – klassifiziere selbst");
     expect(text).not.toContain("category: Suche"); // no searching in the category picker
     expect(text).toContain("brand: Suche „COS“");
     expect(calls.filter((c) => c.startsWith("choose:category"))).toEqual([]); // exact path, no AI needed
@@ -136,6 +136,52 @@ test.describe("vinted.de structure (div rows, search, suggestions)", () => {
     expect(text).toMatch(/size: „M“ übernommen \(Klick auf span\)/);
   });
 
+  test("Vinted sets a skirt for shorts: the analysis wins and Thrift picks Shorts through the tree", async ({ page }) => {
+    await routeVinted(page);
+    await page.goto("https://www.vinted.de/items/new?variant=vinted&autodetect=rock");
+    await page.addScriptTag({ content: harness });
+    await addPhotos(page, 1);
+    const shorts = { ...STUB_ATTRIBUTES, itemType: "Shorts", categoryPath: ["Damen", "Shorts", "Shorts mit hoher Taille"] };
+    const { state, log } = await runFill(page, "label", shorts);
+    expect(state.category).toEqual(["Damen", "Kleidung", "Shorts", "Shorts mit hoher Taille"]);
+    expect(log.join("\n")).toContain("category: Vinted „Miniröcke“ passt nicht zur Analyse „Shorts“ – wähle neu");
+    expect(state.size).toBe("M"); // fields after the category still filled
+  });
+
+  test("a Vinted suggestion that matches the analysis is taken", async ({ page }) => {
+    await routeVinted(page);
+    await page.goto("https://www.vinted.de/items/new?variant=vinted&suggest=shorts");
+    await page.addScriptTag({ content: harness });
+    await addPhotos(page, 1);
+    const shorts = { ...STUB_ATTRIBUTES, itemType: "Shorts", categoryPath: ["Damen", "Kleidung", "Shorts", "Shorts mit hoher Taille"] };
+    const { state, log } = await runFill(page, "label", shorts);
+    expect(state.category).toEqual(["Damen", "Kleidung", "Shorts", "Shorts mit hoher Taille"]);
+    expect(log.join("\n")).not.toContain("Ebene 1");
+  });
+
+  test("extra fields of the category (Rocklänge) are filled from the analysis", async ({ page }) => {
+    await open(page, "vinted");
+    await addPhotos(page, 1);
+    const skirt = { ...STUB_ATTRIBUTES, itemType: "Minirock", categoryPath: ["Damen", "Kleidung", "Röcke", "Miniröcke"] };
+    const { state, calls } = await runFill(page, "label", skirt);
+    expect(state.category).toEqual(["Damen", "Kleidung", "Röcke", "Miniröcke"]);
+    // "Minirock" → "Mini" directly, without an extra AI call.
+    expect(calls).not.toContain("choose:other");
+    expect(await page.evaluate(() => (window as any).__state.rockLength)).toBe("Mini");
+  });
+
+  test("without a category, the fields that depend on it are left alone (no searching)", async ({ page }) => {
+    await open(page, "broken");
+    await addPhotos(page, 1);
+    const { report, calls } = await runFill(page, "none");
+    expect(calls).toContain("pick:Kategorie"); // the category itself may be searched for
+    expect(calls).not.toContain("pick:Zustand"); // dependent fields are not
+    expect(report.filled).not.toContain("condition");
+    expect(report.unresolved.map((u: { key: string }) => u.key)).toEqual(
+      expect.arrayContaining(["category", "brand", "size", "condition", "color"]),
+    );
+  });
+
   test("brand without an exact match is left for the user (never a similar name)", async ({ page }) => {
     await open(page, "vinted");
     await addPhotos(page, 1);
@@ -144,15 +190,15 @@ test.describe("vinted.de structure (div rows, search, suggestions)", () => {
     expect(report.unresolved).toContainEqual({ key: "brand", label: "Marke", value: "Cosmo" });
   });
 
-  test("unknown path: the AI classifies level by level and still ends in a leaf (never stuck)", async ({ page }) => {
+  test("unknown path: similar names first, the AI only where nothing fits, still ends in a leaf (never stuck)", async ({ page }) => {
     await open(page, "vinted");
     await addPhotos(page, 1);
     const attrs = { ...STUB_ATTRIBUTES, categoryPath: ["Damen", "Oberteile", "Strick"] };
     const started = Date.now();
     const { state, calls } = await runFill(page, "label", attrs);
     expect(Date.now() - started).toBeLessThan(20_000);
-    // Level 1 exact (Damen), then AI picks (stub: first option) until a leaf is selected.
-    expect(calls.filter((c) => c === "choose:category").length).toBeGreaterThanOrEqual(2);
+    // Damen exact, "Kleidung" by the AI (nothing similar), "Pullover & Sweatshirts" by similarity, then the leaf.
+    expect(calls.filter((c) => c === "choose:category")).toHaveLength(1);
     expect(state.category[0]).toBe("Damen");
     expect(state.category.length).toBeGreaterThanOrEqual(3);
   });
@@ -193,7 +239,7 @@ test("the AI (Jev) can never publish: Hochladen is neither offered, accepted nor
   const { state, report } = await runFill(page, "upload");
   expect(state.submitted).toBe(false);
   expect(state.draft).toBe(false);
-  expect(report.unresolved.map((u: { key: string }) => u.key).sort()).toEqual(["category", "condition"]);
+  expect(report.unresolved.map((u: { key: string }) => u.key).sort()).toEqual(["brand", "category", "color", "condition", "size"]);
   // After the fill a real human click still works.
   await page.click("#upload");
   expect(await page.evaluate(() => (window as any).__state.submitted)).toBe(true);
@@ -205,7 +251,7 @@ test("offers copy values when neither form map nor AI finds a field", async ({ p
   const { state, report } = await runFill(page, "none");
   expect(state.category).toEqual([]);
   expect(state.condition).toBe("");
-  expect(report.unresolved.map((u: { key: string }) => u.key).sort()).toEqual(["category", "condition"]);
+  expect(report.unresolved.map((u: { key: string }) => u.key).sort()).toEqual(["brand", "category", "color", "condition", "size"]);
   expect(state.title).toBe(STUB_TEXT.title);
   expect(state.submitted).toBe(false);
 });

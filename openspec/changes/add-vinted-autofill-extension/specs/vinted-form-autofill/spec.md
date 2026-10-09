@@ -67,19 +67,26 @@ The extension SHALL NOT click Vinted's upload button, SHALL NOT call Vinted APIs
 - **WHEN** filling has finished
 - **THEN** the item is not uploaded until the user clicks Vinted's "Hochladen"
 
-### Requirement: Vinted's own detection first
-After filling title, description and price, the extension SHALL wait up to about 5 seconds for Vinted to detect category and brand from the text, and SHALL keep whatever Vinted (or the user) has set; it never overwrites a set category or brand.
+### Requirement: Vinted's detection, checked against the analysis
+After filling title, description and price, the extension SHALL wait up to about 5 seconds for Vinted to set category and brand. A category Vinted set is kept only if it is the same kind of garment as the analysis of the photos; otherwise the extension SHALL choose the category itself. A brand Vinted set is kept.
 
-#### Scenario: Vinted detects both
-- **WHEN** Vinted fills category and brand from the description
-- **THEN** the extension does not open those pickers
+#### Scenario: Vinted guesses wrong
+- **WHEN** Vinted sets "Miniröcke" but the analysis says shorts
+- **THEN** the extension selects "Shorts" (e.g. "Shorts mit hoher Taille") itself
 
-### Requirement: Category by classification when not detected
-If Vinted does not detect the category, the extension SHALL open the category dropdown and classify level by level (department, then the closest sub-category, down to a leaf), taking a Vinted suggestion only if its department matches. It SHALL not search, SHALL stop after at most 6 levels, and SHALL offer the category as a copy value when no leaf is set.
+### Requirement: Category selected directly, AI only where nothing fits
+The analysis SHALL return the category path in Vinted's German names. The extension SHALL take a Vinted suggestion when it agrees with that path (same department and kind of garment), else click through the tree level by level matching path segments (levels may be skipped) and similar names; only on a level where nothing fits SHALL it ask the AI. Clicks that do not take are retried on the row's inner targets; at most 7 levels; no search.
 
-#### Scenario: Skirt not detected
-- **WHEN** the item is a skirt and Vinted shows no category
-- **THEN** the extension clicks Damen, then the closest group, then the closest leaf such as "Röcke" or a sub-type
+#### Scenario: No extra tokens
+- **WHEN** the path from the analysis matches the dropdown names
+- **THEN** the category is selected without any further AI call
+
+### Requirement: Fields that depend on the category
+Brand, size, condition, colour, material and category-specific extra fields (e.g. "Rocklänge") SHALL be filled only once a category is set, after waiting for them to appear; without a category they are offered as copy values and not searched for. Extra fields are chosen directly when the item type states it ("Minirock" → "Mini"), else by the AI, else left empty.
+
+#### Scenario: Skirt length
+- **WHEN** the category is "Miniröcke" and Vinted shows "Rocklänge"
+- **THEN** "Mini" is selected without an extra AI call
 
 ### Requirement: Brand only with an exact match
 If Vinted does not detect the brand, the extension SHALL type it into the brand search and select it only when an option matches the name exactly; otherwise the brand is offered as a copy value.

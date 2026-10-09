@@ -37,6 +37,8 @@
 
 - [x] 4.13 Wait for Vinted's own category/brand detection; category by level-wise classification when not detected (no search, bounded); brand only on exact match; own instruction in the panel; closing text removed; faster pacing; verify fixture auto-detection and classification tests
 
+- [x] 4.14 Analysis decides the category (Vinted's own choice kept only if it agrees); direct selection without extra AI calls (Vinted names in the path, similar-name matching, AI only per unmatched level); dependent fields only after the category; extra fields like "Rocklänge"; price typed and compared by amount; verify fixture tests for a wrong Vinted category, suggestions and extras
+
 ## 5. Settings and Chrome release (spec: extension-settings)
 
 - [x] 5.1 Build popup (Artikel verkaufen, last cost, month total) and options page (AI mode, key with test, server URL/token, language and tone lists, closing texts); verify unit/UI tests and masked key display

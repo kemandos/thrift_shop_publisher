@@ -106,11 +106,15 @@ export type RewriteRequest = z.infer<typeof RewriteRequest>;
 
 /** Pick one option label for a form field (size, condition, colour, category level, brand). */
 export const ChooseRequest = z.object({
-  field: z.enum(["category", "size", "condition", "color", "brand", "material"]),
+  field: z.enum(["category", "size", "condition", "color", "brand", "material", "other"]),
+  /** For "other": the field's label on the page, e.g. "Rocklänge". */
+  fieldLabel: z.string().max(60).optional(),
   attributes: Attributes,
   /** For category: the path chosen so far. */
   pathSoFar: z.array(z.string()).default([]),
-  options: z.array(z.string().max(120)).min(1).max(300),
+  /** category only: "tree" = one level, always the closest; "suggestions" = Vinted's suggestions, only if one really fits. */
+  mode: z.enum(["tree", "suggestions"]).default("tree"),
+  options: z.array(z.string().max(200)).min(1).max(300),
 });
 export type ChooseRequest = z.infer<typeof ChooseRequest>;
 

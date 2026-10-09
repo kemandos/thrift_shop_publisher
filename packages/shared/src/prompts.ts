@@ -29,7 +29,8 @@ Rules for facts:
 - material: only from a readable care/composition label, otherwise null.
 - condition: use Vinted's scale. Any visible defect (stain, hole, pilling, fading) means at most "gut".
 - defects: list every visible defect with its location.
-- categoryPath: the first element MUST be exactly one of the offered top-level category options (if any are given); further elements are your best guess of the sub-categories.
+- categoryPath: Vinted's German category names from the top down, as specific as you can, e.g. ["Damen","Kleidung","Shorts","Shorts mit hoher Taille"], ["Damen","Kleidung","Röcke","Miniröcke"], ["Herren","Kleidung","Pullover & Sweater","Strickjacken"], ["Damen","Schuhe","Sneaker"], ["Kinder","Mädchen", …]. If top-level options are offered, the first element MUST be one of them.
+- Garment type: look closely. Shorts and skorts have two leg openings; a skirt has one hem. Trousers vs. leggings, cardigan (open front) vs. jumper, dress vs. long top: decide from what is visible.
 - price: a realistic second-hand range in whole euros for Vinted Germany.
 
 Rules for the text:
@@ -84,10 +85,14 @@ export const CHOOSE_SYSTEM = `You map an item's facts to exactly one option of a
 export function chooseUserText(req: ChooseRequest): string {
   const path = req.pathSoFar.length ? `\nCategory path chosen so far: ${req.pathSoFar.join(" › ")}` : "";
   const rule =
-    req.field === "category"
-      ? "\nThis is one level of Vinted's category tree. Classify the item: pick the option that fits it best (department first: Damen/Herren/Kinder/…, then the closest sub-category). Never answer null here unless no option has anything to do with clothing or the item."
-      : "";
-  return `Field: ${req.field}${path}${rule}\nFacts (JSON):\n${JSON.stringify(req.attributes)}\n\nOptions:\n${req.options
+    req.field === "other"
+      ? `\nThis is the extra field "${req.fieldLabel ?? ""}" Vinted shows for this category. Pick the option the photos/facts clearly support (e.g. a mini skirt → "Mini"); if they do not show it, answer null.`
+      : req.field !== "category"
+      ? ""
+      : req.mode === "suggestions"
+        ? "\nThese are Vinted's own category suggestions, each as 'name — path'. Pick one only if it really fits this item: same department (Damen/Herren/Kinder/…) and the same kind of garment (a skirt is not shorts). Otherwise answer null."
+        : "\nThis is one level of Vinted's category tree. Classify the item: pick the option that fits it best (department first: Damen/Herren/Kinder/…, then the closest sub-category). Never answer null here unless no option has anything to do with clothing or the item.";
+  return `Field: ${req.field === "other" ? `other (${req.fieldLabel ?? "?"})` : req.field}${path}${rule}\nFacts (JSON):\n${JSON.stringify(req.attributes)}\n\nOptions:\n${req.options
     .map((o) => `- ${o}`)
     .join("\n")}`;
 }

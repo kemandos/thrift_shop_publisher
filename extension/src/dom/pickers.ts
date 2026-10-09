@@ -177,19 +177,23 @@ export async function openPicker(
   };
 }
 
-/** Options that appeared after clicking an option (next tree level), or null if the picker closed. */
-export async function nextLevel(session: PickerSession, previous: Option[], timeoutMs = 1500): Promise<Option[] | null> {
-  // React may reuse row elements for the next level, so compare element + text, not elements only.
+export type LevelResult = { kind: "next"; options: Option[] } | { kind: "closed" } | { kind: "same" };
+
+/**
+ * What happened after clicking a tree row: a new level appeared, the picker closed (leaf chosen),
+ * or nothing changed (the click did not take).
+ */
+export async function nextLevel(session: PickerSession, previous: Option[], timeoutMs = 1500): Promise<LevelResult> {
+  // React may reuse row elements for the next level, so compare text, not elements only.
   const prev = new Set(previous.map((o) => `${norm(o.label)}|${norm(o.detail)}`));
-  const res = await waitFor(() => {
+  const res = await waitFor((): LevelResult | null => {
     const now = session.scan();
     const fresh = now.filter((o) => !prev.has(`${norm(o.label)}|${norm(o.detail)}`));
-    if (fresh.length) return fresh;
-    // Picker closed: previous options gone.
-    if (!previous.some((o) => o.el.isConnected && isVisible(o.el))) return "closed" as const;
+    if (fresh.length) return { kind: "next", options: now };
+    if (!previous.some((o) => o.el.isConnected && isVisible(o.el))) return { kind: "closed" };
     return null;
   }, timeoutMs);
-  return res === "closed" || res === null ? null : res;
+  return res ?? { kind: "same" };
 }
 
 /**
