@@ -26,7 +26,8 @@ Greenfield repository. See `proposal.md` for motivation and `specs/` for the beh
 - An architecture that can later add a Mac target without rework.
 
 **Non-Goals:**
-- Posting to Vinted, Vinted Pro Integrations, Vinted's private API, Safari/browser extensions that fill Vinted's web form.
+- Posting to Vinted, Vinted Pro Integrations, Vinted's private API.
+- Browser extensions that fill Vinted's web form are a separate follow-up change: `add-browser-autofill-extension`.
 - Android, web app.
 - User accounts with e-mail/password.
 - Image editing (background removal, virtual models). Possible later.
