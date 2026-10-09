@@ -17,6 +17,13 @@ The system SHALL let the user pick multiple photos from the Photos library in on
 - **WHEN** the user has granted no or only limited library access
 - **THEN** the system still imports exactly the photos picked
 
+### Requirement: Start from the Photos app
+The system SHALL offer a share extension "Inserat erstellen" that accepts multiple photos from the Photos app and opens them as a new batch in the app.
+
+#### Scenario: Share from Photos
+- **WHEN** the user selects 6 photos in Photos and shares them to "Inserat erstellen"
+- **THEN** the app opens with a new batch containing those 6 photos
+
 ### Requirement: Take photos in the app
 The system SHALL let the user take photos with the camera inside the app and add them to the current batch.
 

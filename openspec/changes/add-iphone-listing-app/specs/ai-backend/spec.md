@@ -13,12 +13,27 @@ The app SHALL send cloud AI requests only to our backend; the backend SHALL call
 - **WHEN** the app binary is inspected
 - **THEN** it contains no AI provider API key
 
+### Requirement: Consent before sharing photos with the AI provider
+Before the first cloud analysis, the system SHALL show which data is sent (downscaled photos without metadata, OCR text) and to whom (named AI provider), and SHALL send nothing until the user explicitly agrees; consent SHALL be revocable in Settings.
+
+#### Scenario: First analysis
+- **WHEN** the user starts their first analysis
+- **THEN** a consent screen naming the AI provider appears, and no photo is uploaded unless the user taps "Zustimmen"
+
+#### Scenario: Consent revoked
+- **WHEN** the user revokes consent in Settings and starts an analysis
+- **THEN** the consent screen is shown again before any upload
+
 ### Requirement: Genuine-device verification
 The backend SHALL accept AI requests only from requests that pass Apple device attestation for our app.
 
 #### Scenario: Script without attestation
 - **WHEN** a request arrives without a valid attestation
 - **THEN** the backend rejects it without calling the AI provider
+
+#### Scenario: Development build
+- **WHEN** an allow-listed development install sends a request with a valid development token instead of an attestation
+- **THEN** the backend accepts it; the token is never accepted for production users
 
 ### Requirement: Anonymous user identity
 The system SHALL identify users without requiring an account or e-mail, using a stable identifier linked to device and App Store purchases.

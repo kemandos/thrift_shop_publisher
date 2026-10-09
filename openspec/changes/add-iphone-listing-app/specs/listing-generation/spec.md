@@ -20,6 +20,13 @@ The system SHALL generate listing text in German or English, default to the user
 - **WHEN** the user switches a German listing to English
 - **THEN** title, description and hashtags are regenerated in English with the same facts, without re-analysing the photos
 
+### Requirement: AI-generated text is labelled
+The system SHALL mark generated title, description and attributes as AI-generated in the app until the user has reviewed them.
+
+#### Scenario: Fresh listing
+- **WHEN** a listing has just been generated
+- **THEN** it shows the label "KI-generiert – bitte prüfen"
+
 ### Requirement: Title rules
 The title SHALL contain the item type and, when known, brand, size and main colour, within the configured maximum length.
 

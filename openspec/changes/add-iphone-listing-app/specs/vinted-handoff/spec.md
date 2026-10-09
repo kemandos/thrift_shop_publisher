@@ -35,6 +35,17 @@ The system SHALL provide a keyboard that shows the current listing and inserts t
 - **WHEN** the user taps the listing switcher on the keyboard
 - **THEN** recent unpublished listings are shown and the selected one becomes current
 
+### Requirement: Keyboard works without Full Access
+The keyboard SHALL work as a normal typing keyboard (letters, numbers, delete, return, next-keyboard key) without Full Access and without network access; without Full Access the listing buttons SHALL explain how to enable it instead of inserting text. The keyboard SHALL NOT open other apps.
+
+#### Scenario: Full Access off
+- **WHEN** Full Access is disabled and the user taps "Titel" on the keyboard
+- **THEN** the keyboard shows "Vollzugriff erlauben, um Inserate einzufügen" and typing letters still works
+
+#### Scenario: Next keyboard
+- **WHEN** the user taps the globe key
+- **THEN** the system switches to the next keyboard
+
 ### Requirement: Keyboard shows picker values
 The keyboard SHALL display the item's category, size, brand, condition, colour and price as reference, so the user can choose them in Vinted's own pickers.
 

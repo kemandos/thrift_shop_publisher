@@ -49,6 +49,13 @@ The paywall SHALL show plans with price, listing allowance, renewal terms, resto
 - **WHEN** the user taps "Käufe wiederherstellen" on a new iPhone
 - **THEN** their active subscription is restored
 
+### Requirement: Manage and cancel subscription in the app
+The system SHALL provide an "Abo verwalten / kündigen" entry in Settings that opens the system subscription management.
+
+#### Scenario: Cancel
+- **WHEN** the user taps "Abo verwalten / kündigen"
+- **THEN** the system subscription management sheet for this app opens
+
 ### Requirement: Usage visibility
 The system SHALL show remaining trial listings, plan allowance and credits, and warn when fewer than 3 remain.
 

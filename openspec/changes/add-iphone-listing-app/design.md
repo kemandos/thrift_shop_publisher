@@ -36,9 +36,10 @@ Greenfield repository. See `proposal.md` for motivation and `specs/` for the beh
 ### D1 — Native Swift/SwiftUI, not Expo (and not "Expo first, Swift later")
 
 - **Structure:** one Xcode project with three parts.
-  - `ThriftShop` iOS app: iOS 26+, SwiftUI, SwiftData.
+  - `ThriftShop` iOS app: iOS 26+, SwiftUI, SwiftData. iOS 27 features are gated with `#available`. Built with Xcode 27 / Swift 6.4, using buildable folders.
   - `ThriftKeyboard`: a keyboard extension.
-  - `ListingCore`: a Swift package with models, grouping, image preparation, the API client and prompt and locale resources.
+  - `ThriftShare`: a share extension, "Inserat erstellen" from Photos.
+  - `ListingCore`: a Swift package with models, grouping, image preparation, the API client and prompt and locale resources. The platform-neutral parts build and test on Linux (`swift test`). Details: `docs/ios27-research.md`.
 - **Why native:**
   - About 40% of the product needs native iOS code whatever stack is chosen: the keyboard extension, on-device Vision OCR and feature prints, Foundation Models, PhotoKit album writing, App Attest/DeviceCheck and StoreKit.
   - In Expo, all of these would be Swift modules anyway, plus the bridging work between TypeScript and Swift.
@@ -63,6 +64,7 @@ Greenfield repository. See `proposal.md` for motivation and `specs/` for the beh
   - Output, including thinking: ≈ 800 tokens ≈ $0.0004.
   - A cloud writing call, when needed: ≈ $0.0005.
   - **Total ≈ 0.15–0.2 ct per listing.** A power user with 500 listings a month costs about €1.
+- **Private Cloud Compute (iOS 27, `PrivateCloudComputeLanguageModel`)** is the preferred free server model for writing on eligible devices that lack enough on-device quality. It is free for Small Business Program developers with fewer than 2M downloads, needs a managed entitlement, and users have a daily quota. Request the entitlement after enrolling.
 - **On-device image input (iOS 27)** is an experiment behind a feature flag. The analysis may move on-device for eligible devices once tests show it reaches the quality of the cloud model.
 
 ### D3 — Backend: Supabase Edge Functions + Postgres
@@ -108,7 +110,7 @@ Greenfield repository. See `proposal.md` for motivation and `specs/` for the beh
 4. **Keyboard:** buttons Titel, Beschreibung, Hashtags, a listing switcher and a reference card. It uses `textDocumentProxy.insertText`, which is standard keyboard behaviour, so to Vinted it looks like typing. A globe key switches back to the system keyboard. The keyboard has no network access and no logging.
 5. **Return:** when the app becomes active again after a handoff, it asks "Hochgeladen?".
 
-The keyboard must read the App Group container. That requires **"Allow Full Access"**, and iOS shows a privacy warning for it. The onboarding explains why: "the keyboard only reads your prepared listings and sends nothing". The privacy policy says the same.
+The keyboard must read the App Group container. That requires **"Allow Full Access"**, and iOS shows a privacy warning for it. App Review guideline 4.4.1 requires the keyboard to keep working without Full Access. It is therefore a complete QWERTZ/QWERTY typing keyboard with a listing bar on top. Without Full Access, the bar explains how to enable it instead of inserting text. The keyboard never opens other apps. The onboarding explains why: "the keyboard only reads your prepared listings and sends nothing". The privacy policy says the same.
 
 ### D7 — Onboarding implementation
 
@@ -137,6 +139,7 @@ The keyboard must read the App Group container. That requires **"Allow Full Acce
   - The macOS job runs `xcodebuild build test` for `ListingCore` and the app on the iOS Simulator for every push. This lets cloud-based development (including Claude Code on the web) see compile and test results.
   - A Linux job runs Deno unit tests for the Edge Functions.
 - **TestFlight:** Xcode Cloud, with 25 hours per month included in the Developer Program, or local Xcode on the owner's Mac.
+- **Free Apple ID phase:** In-App Purchase, App Attest and TestFlight are unavailable. Debug builds use an allow-listed development token in place of App Attest, purchases are tested with a `.storekit` file in the Simulator, and device installs are re-signed every 7 days.
 - **What needs a physical iPhone:** testing the keyboard, the Vinted handoff, App Attest and purchases. The Simulator cannot do App Attest or real purchases.
 
 ## Risks / Trade-offs
@@ -148,6 +151,8 @@ The keyboard must read the App Group container. That requires **"Allow Full Acce
 - [Model invents facts] → Text is written only from confirmed attributes. A post-check verifies size and brand in the text.
 - [Trial abuse across devices] → DeviceCheck stops reinstall abuse. Multiple devices are an accepted, low-cost risk (≈ €0.02 per trial).
 - [App Review rejection: "spam"/"minimum functionality", or the keyboard's purpose] → A clear single purpose, a privacy explanation, and a keyboard that is useful by itself.
+- [App Review: trademark (5.2.1) or third-party AI consent (5.1.2(i))] → No "Vinted" in the app name, subtitle or icon, and no Vinted UI in screenshots. An explicit AI consent screen naming Anthropic.
+- [EU AI Act Art. 50 transparency, and §312k/§356a BGB buttons for in-app subscriptions] → A "KI-generiert" label in the app and an in-app "Abo verwalten / kündigen" entry. Get legal review before launch.
 - [Swift needs a Mac or CI for every build] → GitHub Actions macOS CI. The owner's Mac handles device runs.
 - [Prices or models change] → Model config lives on the server, and prices are App Store configuration.
 
