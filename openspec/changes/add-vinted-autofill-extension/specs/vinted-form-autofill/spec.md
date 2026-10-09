@@ -74,6 +74,17 @@ The category SHALL be set in this order: keep a category Vinted already shows th
 - **WHEN** Vinted suggests "Strickpullover — Herren > Kleidung > Pullover" for a women's sweater
 - **THEN** Thrift searches and selects "Strickpullover — Damen > Kleidung > Pullover & Sweatshirts"
 
+### Requirement: Confirmed selection at a person's pace
+A field SHALL only count as filled when the form shows the chosen value. If a click on an option does not take, the extension SHALL try the next likely target inside it (native radio/checkbox, label, inner role element, text element) and reopen the picker once if it closed; multi-select pickers get a single click. Clicks SHALL be mouse-like (hover, press, release with real coordinates), searches typed key by key, with pauses of roughly half a second to a second between steps. Pickers that are pre-rendered and only shown on open SHALL be recognised.
+
+#### Scenario: Size tile ignores the click on its box
+- **WHEN** the size grid only reacts to a click on the text inside a tile
+- **THEN** the extension notices the size was not taken, clicks the text, and confirms "M" in the field
+
+#### Scenario: Value not accepted
+- **WHEN** no target makes the form show the value
+- **THEN** the field is reported as not filled and offered as a copy value
+
 ### Requirement: Fill log for troubleshooting
 After each fill the panel SHALL offer "Protokoll kopieren": which field elements were found, which options each picker showed (with a compact outline of the picker's structure), what was chosen and what the field shows afterwards. The log SHALL contain no photos, keys or tokens.
 

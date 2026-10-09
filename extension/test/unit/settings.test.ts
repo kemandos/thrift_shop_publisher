@@ -47,6 +47,13 @@ describe("settings", () => {
     expect(maskSecret("")).toBe("");
   });
 
+  it("passes the own instruction into the style; the panel can override it per item", () => {
+    const s = mergeSettings({ customPrompt: "  Erwähne: Nichtraucherhaushalt  " }, {});
+    expect(styleFrom(s).customInstructions).toBe("Erwähne: Nichtraucherhaushalt");
+    expect(styleFrom(s, { customPrompt: "Kurz halten" }).customInstructions).toBe("Kurz halten");
+    expect(mergeSettings({ customPrompt: "x".repeat(401) }, {}).customPrompt).toBe("");
+  });
+
   it("uses the closing text of the chosen language", () => {
     const s = mergeSettings({ closingTextDe: "Versand in 2 Tagen.", closingTextEn: "Ships in 2 days." }, {});
     expect(styleFrom(s).closingText).toBe("Versand in 2 Tagen.");

@@ -34,6 +34,7 @@ test.beforeAll(async () => {
       if (url === "/v1/analyze") {
         const p = JSON.parse(body);
         hits.push(`photos:${p.photos.length}`);
+        hits.push(`wishes:${p.style.customInstructions ?? ""}`);
         return json({ result: { attributes: STUB_ATTRIBUTES, text: STUB_TEXT }, usage });
       }
       if (url === "/v1/choose") {
@@ -103,6 +104,9 @@ test("first fill shows the notice; after 'Verstanden' it fills everything via th
   expect(hits.filter((h) => h.includes("/v1/analyze"))).toHaveLength(0);
   await page.getByTestId("thrift-notice-ok").click();
   await expect(page.getByTestId("thrift-notice")).toBeHidden();
+  // Own instruction for this item, entered in the panel.
+  await page.getByTestId("thrift-instructions-toggle").click();
+  await page.getByTestId("thrift-instructions").fill("Erwähne: Nichtraucherhaushalt");
   await page.getByTestId("thrift-fill").click();
   await expect(page.getByText("Fertig – bitte prüfen und selbst hochladen")).toBeVisible({ timeout: 30_000 });
   const state = await page.evaluate(() => (window as any).__state);
@@ -118,6 +122,7 @@ test("first fill shows the notice; after 'Verstanden' it fills everything via th
   });
   expect(state.category).toEqual(["Damen", "Kleidung", "Pullover & Sweatshirts", "Strickpullover"]);
   expect(hits).toContain("photos:2");
+  expect(hits).toContain("wishes:Erwähne: Nichtraucherhaushalt");
   await expect(page.getByTestId("thrift-rewrite")).toBeVisible();
   // The fill log can be copied for troubleshooting.
   await expect(page.getByTestId("thrift-log")).toBeVisible();
@@ -153,6 +158,8 @@ test("options page: language/tone are lists, key is stored masked, popup opens t
   await page.locator("input[name=model][value='typesafe/jev-router']").check();
   await page.fill("#apiKey", "sk-or-test-key-3fA9");
   await page.locator("input[name=language][value=en]").check();
+  await page.fill("#customPrompt", "Kurze Sätze, erwähne Nichtraucherhaushalt");
+  await expect(page.locator("#customPromptCount")).toHaveText("41 / 400");
   await page.click("#save");
   await expect(page.locator("#apiKeyMasked")).toHaveText("Gespeichert: ••••••••3fA9");
   await expect(page.locator("#apiKey")).toHaveValue("");
@@ -166,6 +173,7 @@ test("options page: language/tone are lists, key is stored masked, popup opens t
     model: "typesafe/jev-router",
     navModel: "typesafe/jev-router",
     language: "en",
+    customPrompt: "Kurze Sätze, erwähne Nichtraucherhaushalt",
   });
 
   const popup = await ctx.newPage();

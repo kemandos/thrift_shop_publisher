@@ -1,6 +1,15 @@
 import { browser } from "wxt/browser";
 import { z } from "zod";
-import { DEFAULT_NAV_MODEL, DEFAULT_OPENROUTER_MODEL, HAIKU_MODEL, JEV_MODEL, Language, Tone, type ListingStyle } from "@thrift/shared";
+import {
+  DEFAULT_NAV_MODEL,
+  DEFAULT_OPENROUTER_MODEL,
+  HAIKU_MODEL,
+  JEV_MODEL,
+  Language,
+  MAX_CUSTOM_INSTRUCTIONS,
+  Tone,
+  type ListingStyle,
+} from "@thrift/shared";
 
 const Model = z.enum([HAIKU_MODEL, JEV_MODEL]);
 
@@ -19,6 +28,8 @@ export const Settings = z.object({
   tone: Tone.default("freundlich"),
   closingTextDe: z.string().default(""),
   closingTextEn: z.string().default(""),
+  /** Own instruction for the listing text (wording only; see prompts.ts "seller wishes"). */
+  customPrompt: z.string().max(MAX_CUSTOM_INSTRUCTIONS).catch(""),
   noticeAccepted: z.boolean().default(false),
   /** Panel position on vinted.de (per device, so the iPhone and the Mac can differ). */
   panelDock: z.enum(["bottom", "top"]).catch("bottom"),
@@ -42,6 +53,7 @@ const NATIVE_KEYS = [
   "tone",
   "closingTextDe",
   "closingTextEn",
+  "customPrompt",
 ] as const;
 
 export function mergeSettings(local: Partial<Settings>, native: Partial<Settings>): Settings {
@@ -67,10 +79,18 @@ export async function saveSettings(patch: Partial<Settings>): Promise<Settings> 
   return next;
 }
 
-export function styleFrom(s: Settings, override?: Partial<Pick<Settings, "language" | "tone">>): ListingStyle {
+export function styleFrom(
+  s: Settings,
+  override?: Partial<Pick<Settings, "language" | "tone" | "customPrompt">>,
+): ListingStyle {
   const language = override?.language ?? s.language;
   const tone = override?.tone ?? s.tone;
-  return { language, tone, closingText: language === "de" ? s.closingTextDe : s.closingTextEn };
+  return {
+    language,
+    tone,
+    closingText: language === "de" ? s.closingTextDe : s.closingTextEn,
+    customInstructions: (override?.customPrompt ?? s.customPrompt).trim().slice(0, MAX_CUSTOM_INSTRUCTIONS),
+  };
 }
 
 /** "••••••••3fA9" */

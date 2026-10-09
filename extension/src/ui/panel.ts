@@ -30,6 +30,8 @@ export interface PanelHandlers {
   onFill(): void;
   onRewrite(): void;
   onStyleChange(language: Language, tone: Tone): void;
+  /** The seller's own instruction for this item (wording only). */
+  onInstructionsChange?(text: string): void;
   onAcceptNotice(): void;
   /** Called when the user moves or collapses the panel (persisted by the caller). */
   onLayoutChange?(layout: PanelLayout): void;
@@ -41,6 +43,7 @@ export interface Panel {
   setBusy(busy: boolean): void;
   setStatus(msg: string, error?: boolean): void;
   setStyle(language: Language, tone: Tone): void;
+  setInstructions(text: string): void;
   setLayout(layout: Partial<PanelLayout>): void;
   showNotice(show: boolean): void;
   showResult(unresolved: Unresolved[], canRewrite: boolean): void;
@@ -135,6 +138,44 @@ export function createPanel(doc: Document, h: PanelHandlers): Panel {
   for (const t of TONES) tone.append(el("option", { value: t }, TONE_LABELS[t]));
   styleRow.append(lang, tone);
 
+  // Own instruction (in addition to the tone), collapsible so the panel stays small.
+  const instrToggle = el(
+    "button",
+    {
+      class: "mt-1.5 cursor-pointer border-0 bg-transparent p-0 text-[12px] text-spruce underline pointer-coarse:py-2 pointer-coarse:text-sm",
+      "data-testid": "thrift-instructions-toggle",
+      "aria-expanded": "false",
+    },
+    "Eigene Anweisung",
+  );
+  const instr = el("textarea", {
+    class:
+      "field mt-1.5 hidden min-h-[64px] resize-y text-[13px] pointer-coarse:text-base",
+    rows: "2",
+    maxlength: "400",
+    placeholder: "z. B. Erwähne: Nichtraucherhaushalt. Kurze Sätze.",
+    "aria-label": "Eigene Anweisung für Titel und Beschreibung",
+    "data-testid": "thrift-instructions",
+  });
+  const instrHint = el(
+    "div",
+    { class: "mt-1 hidden text-[11px] text-muted pointer-coarse:text-xs" },
+    "Nur für den Text zum Kleidungsstück. Andere Aufgaben werden ignoriert.",
+  );
+  const setInstrOpen = (open: boolean) => {
+    instr.classList.toggle("hidden", !open);
+    instrHint.classList.toggle("hidden", !open);
+    instrToggle.setAttribute("aria-expanded", String(open));
+  };
+  const markInstr = () => {
+    instrToggle.textContent = instr.value.trim() ? "Eigene Anweisung ✓" : "Eigene Anweisung";
+  };
+  instrToggle.addEventListener("click", () => setInstrOpen(instr.classList.contains("hidden")));
+  instr.addEventListener("input", () => {
+    markInstr();
+    h.onInstructionsChange?.(instr.value);
+  });
+
   const actions = el("div", { class: "mt-2 flex items-center gap-2" });
   const fill = el("button", { class: "btn-primary h-[46px] flex-1 pointer-coarse:h-12", "data-testid": "thrift-fill" }, "✨ Ausfüllen");
   const rewrite = el("button", { class: `btn-ghost hidden shrink-0 ${COARSE_BTN}`, "data-testid": "thrift-rewrite" }, "Neu schreiben");
@@ -167,7 +208,7 @@ export function createPanel(doc: Document, h: PanelHandlers): Panel {
     setTimeout(() => (logBtn.textContent = "Protokoll kopieren"), 2000);
   });
 
-  body.append(styleRow, actions, notice, status, list, foot);
+  body.append(styleRow, instrToggle, instr, instrHint, actions, notice, status, list, foot);
   card.append(head, body);
   root.append(card);
   doc.body.append(host);
@@ -234,6 +275,10 @@ export function createPanel(doc: Document, h: PanelHandlers): Panel {
     setStyle(l, t) {
       lang.value = l;
       tone.value = t;
+    },
+    setInstructions(text) {
+      instr.value = text;
+      markInstr();
     },
     setLayout(patch) {
       layout = { ...layout, ...patch };

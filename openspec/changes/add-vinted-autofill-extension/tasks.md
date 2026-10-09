@@ -32,6 +32,9 @@
 - [x] 4.9 Adapt pickers to vinted.de's real structure (div rows, search box, suggestions with paths, reused rows, "Wähle …" placeholders, "(empfohlen)" labels), scope options to the opened picker, add the fill log; verify a Vinted-like fixture variant
 - [x] 4.10 Show the OpenRouter balance in popup and panel with a low-balance warning; verify unit tests
 
+- [x] 4.11 Confirm every picker choice in the field, retry inner targets, recognise shown (pre-rendered) pickers, human-paced clicks and typing; verify a Vinted-like size grid in the fixture
+- [x] 4.12 Own instruction in addition to the tone (settings default, per item in the panel), clothing text only, links/e-mails stripped; verify prompt, schema and e2e tests
+
 ## 5. Settings and Chrome release (spec: extension-settings)
 
 - [x] 5.1 Build popup (Artikel verkaufen, last cost, month total) and options page (AI mode, key with test, server URL/token, language and tone lists, closing texts); verify unit/UI tests and masked key display

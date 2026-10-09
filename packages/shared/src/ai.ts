@@ -10,6 +10,7 @@ import {
   pickUserText,
   REWRITE_SYSTEM,
   rewriteUserText,
+  stripLinksAndContacts,
 } from "./prompts";
 import {
   AnalyzeRequest,
@@ -109,10 +110,14 @@ function normalizeAttributes(raw: z.infer<typeof ModelAttributes>): Attributes {
 }
 
 function normalizeText(raw: z.infer<typeof ModelText>, closingText: string): ListingText {
+  // The seller's own closing text is kept verbatim; generated text never carries links or e-mails.
   return ListingText.parse({
-    title: raw.title.trim().slice(0, 100),
-    description: appendClosingText(raw.description, closingText).slice(0, 3000),
-    hashtags: raw.hashtags.map((h) => h.replace(/^#/, "").trim().toLowerCase()).filter(Boolean).slice(0, 10),
+    title: stripLinksAndContacts(raw.title).slice(0, 100),
+    description: appendClosingText(stripLinksAndContacts(raw.description), closingText).slice(0, 3000),
+    hashtags: raw.hashtags
+      .map((h) => h.replace(/^#/, "").trim().toLowerCase())
+      .filter((h) => h && !/[@/]|^www\.|https?/.test(h))
+      .slice(0, 10),
   });
 }
 

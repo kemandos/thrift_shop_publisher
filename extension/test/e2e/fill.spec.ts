@@ -104,6 +104,10 @@ test.describe("vinted.de structure (div rows, search, suggestions)", () => {
     expect(text).toContain("category: Suche „Strickpullover“");
     expect(text).toContain("Aufbau der Auswahl"); // DOM outline for remote debugging
     expect(text).toContain('placeholder="Wähle eine Größe"');
+    // Size grid: shown (not added) on open, help links ignored, tile click retried on the inner text.
+    expect(await page.evaluate(() => (window as any).__state.sizeTable)).toBeUndefined();
+    expect(text).toMatch(/size: Klick auf div – noch nicht übernommen/);
+    expect(text).toMatch(/size: „M“ übernommen \(Klick auf span\)/);
   });
 
   test("category via the tree when there is no search box (rows reused between levels)", async ({ page }) => {

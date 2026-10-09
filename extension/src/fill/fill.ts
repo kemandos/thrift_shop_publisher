@@ -12,7 +12,7 @@ import {
   type PickElementResult,
 } from "@thrift/shared";
 import { displayedValue, locateField } from "../dom/locate";
-import { isVisible, norm, safeClick, setNativeValue, type Pacer } from "../dom/core";
+import { humanClick, isVisible, norm, setNativeValue, type Pacer } from "../dom/core";
 import {
   clearPickerSearch,
   closePicker,
@@ -178,6 +178,75 @@ async function withPicker<T>(ctx: FillContext, key: FieldKey, trigger: Element, 
   }
 }
 
+/** The field shows the value: exact per item, or (for 3+ characters) contained in what it shows. */
+function valueShown(trigger: Element, value: string): boolean {
+  if (hasValue(trigger, value)) return true;
+  const v = norm(value);
+  return v.length >= 3 && norm(displayedValue(trigger)).includes(v);
+}
+
+async function waitUntil(check: () => boolean, timeoutMs: number): Promise<boolean> {
+  const end = Date.now() + timeoutMs;
+  while (Date.now() < end) {
+    if (check()) return true;
+    await new Promise((r) => setTimeout(r, 60));
+  }
+  return check();
+}
+
+/**
+ * What to click for an option, most likely first: the row itself, a native radio/checkbox inside,
+ * its label, an inner element with a role, the innermost element carrying the text.
+ */
+function clickTargets(row: Element, label: string): Element[] {
+  const out: Element[] = [];
+  const push = (e: Element | null | undefined) => {
+    if (e && !out.includes(e)) out.push(e);
+  };
+  push(row);
+  push(row.querySelector("input[type=radio], input[type=checkbox]"));
+  push(row.querySelector("label") ?? row.closest("label"));
+  push(row.querySelector("[role=option], [role=radio], [role=checkbox], [role=button], button"));
+  const want = norm(label);
+  push(
+    Array.from(row.querySelectorAll("*"))
+      .reverse()
+      .find((e) => norm(e.textContent) === want),
+  );
+  return out;
+}
+
+/**
+ * Clicks an option until the field really shows it (Vinted must accept the choice, not just see a
+ * click). Tries the next target when it did not take. Returns true when confirmed.
+ */
+async function selectOption(
+  ctx: FillContext,
+  key: string,
+  pick: Option,
+  confirmed: () => boolean,
+  skip = 0,
+  maxTargets = 5,
+): Promise<boolean> {
+  const forbidden = ctx.map.forbiddenClickText;
+  for (const t of clickTargets(pick.el, pick.label).slice(skip, skip + maxTargets)) {
+    if (!t.isConnected) break;
+    try {
+      await humanClick(t, forbidden, ctx.pace);
+    } catch (e) {
+      ctx.log?.(`${key}: Klick auf ${describe(t)} abgelehnt (${e instanceof Error ? e.message : String(e)})`);
+      continue;
+    }
+    if (await waitUntil(confirmed, 1500)) {
+      ctx.log?.(`${key}: „${pick.label}“ übernommen (Klick auf ${describe(t)})`);
+      return true;
+    }
+    ctx.log?.(`${key}: Klick auf ${describe(t)} – noch nicht übernommen`);
+    await ctx.pace.tap();
+  }
+  return false;
+}
+
 async function fillList(ctx: FillContext, key: ChooseField, attrs: Attributes, want: string | null): Promise<string | null> {
   const trigger = await resolve(ctx, key);
   if (!trigger) {
@@ -185,50 +254,59 @@ async function fillList(ctx: FillContext, key: ChooseField, attrs: Attributes, w
     return null;
   }
   if (want && hasValue(trigger, want)) return want; // already set (e.g. by Vinted)
-  const forbidden = ctx.map.forbiddenClickText;
-  return withPicker(ctx, key, trigger, async (session) => {
-    let options = session.options;
-    if (!options.length) return null;
-    if (key === "brand" && want) {
-      const found = await searchInPicker(ctx.doc, session, want, ctx.pace);
-      if (found) {
-        options = found;
-        ctx.log?.(`${key}: Suche „${want}“: ${optionList(options)}`);
+  let chosen: Option | null = null;
+  // Up to two rounds: if the picker closed without taking the value, open it again and try other targets.
+  for (let round = 0; round < 2; round++) {
+    const result = await withPicker(ctx, key, trigger, async (session) => {
+      let options = session.options;
+      if (!options.length) return "none" as const;
+      if (key === "brand" && want) {
+        const found = await searchInPicker(ctx.doc, session, want, ctx.pace);
+        if (found) {
+          options = found;
+          ctx.log?.(`${key}: Suche „${want}“: ${optionList(options)}`);
+        }
       }
-    }
-    const pick = await chooseOption(ctx, key, attrs, options, want);
-    if (!pick) {
-      ctx.log?.(`${key}: keine passende Option für „${want ?? ""}“`);
-      await closePicker(trigger, ctx.doc);
-      return null;
-    }
-    safeClick(pick.el, forbidden);
+      const pick = chosen
+        ? (options.find((o) => o.label === chosen!.label && o.detail === chosen!.detail) ?? null)
+        : await chooseOption(ctx, key, attrs, options, want);
+      if (!pick) {
+        ctx.log?.(`${key}: keine passende Option für „${want ?? ""}“`);
+        await closePicker(trigger, ctx.doc);
+        return "none" as const;
+      }
+      chosen = pick;
+      await ctx.pace.step(); // a person looks before clicking
+      const confirmed = () => valueShown(trigger, pick.label);
+      // Multi-select (colour): one click only – a second click would unselect it again.
+      const multi = key === "color";
+      if (multi && round > 0) return "none" as const;
+      let ok = await selectOption(ctx, key, pick, confirmed, round, multi ? 1 : 5);
+      // Multi-select pickers (colour) stay open; some only update the field when closed.
+      if (pick.el.isConnected && isVisible(pick.el)) {
+        await closePicker(trigger, ctx.doc);
+        await ctx.pace.tap();
+        ok = ok || (await waitUntil(confirmed, 800));
+      }
+      ctx.log?.(`${key}: Feld zeigt jetzt „${displayedValue(trigger)}“`);
+      return ok ? ("ok" as const) : ("retry" as const);
+    });
+    if (result === "ok") return chosen!.label;
+    if (result === "none") return null;
     await ctx.pace.step();
-    ctx.log?.(`${key}: gewählt „${pick.label}“, Feld zeigt jetzt „${displayedValue(trigger)}“`);
-    // Multi-select pickers (e.g. colour) stay open after a click – close them.
-    if (pick.el.isConnected && isVisible(pick.el)) await closePicker(trigger, ctx.doc);
-    return pick.label;
-  });
+  }
+  return null;
 }
 
 /** Clicks a leaf option and confirms the trigger shows it (or the picker closed). */
 async function selectLeaf(ctx: FillContext, session: PickerSession, pick: Option): Promise<string[] | null> {
-  safeClick(pick.el, ctx.map.forbiddenClickText);
   await ctx.pace.step();
-  const ok = await waitForValue(session.trigger, pick.label);
+  const ok = await selectOption(ctx, "category", pick, () => hasValue(session.trigger, pick.label));
   ctx.log?.(`category: gewählt „${pick.label}“ (${pick.detail}), Feld zeigt „${displayedValue(session.trigger)}“`);
   if (pick.el.isConnected && isVisible(pick.el)) await closePicker(session.trigger, ctx.doc);
   return ok ? [...pathSegments(pick.detail), pick.label] : null;
 }
 
-async function waitForValue(trigger: Element, value: string, timeoutMs = 1500): Promise<boolean> {
-  const end = Date.now() + timeoutMs;
-  while (Date.now() < end) {
-    if (hasValue(trigger, value)) return true;
-    await new Promise((r) => setTimeout(r, 50));
-  }
-  return hasValue(trigger, value);
-}
 
 /** Leaf among several equal candidates: let the AI pick using the full paths. */
 async function aiPickPath(ctx: FillContext, attrs: Attributes, tied: Option[]): Promise<Option | null> {
@@ -302,7 +380,8 @@ async function fillCategory(ctx: FillContext, attrs: Attributes): Promise<string
         ctx.log?.(`category: Ebene ${level + 1} ohne Treffer: ${optionList(options)}`);
         break;
       }
-      safeClick(pick.el, forbidden);
+      await ctx.pace.step();
+      await humanClick(pick.el, forbidden, ctx.pace);
       path.push(pick.label);
       await ctx.pace.step();
       const next = await nextLevel(session, options);

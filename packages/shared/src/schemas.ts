@@ -43,11 +43,18 @@ export const Photo = z.object({
 });
 export type Photo = z.infer<typeof Photo>;
 
+export const MAX_CUSTOM_INSTRUCTIONS = 400;
+
 export const ListingStyle = z.object({
   language: Language,
   tone: Tone,
   /** Appended verbatim to the description, may be empty. */
   closingText: z.string().max(500).default(""),
+  /**
+   * The seller's own wishes for the wording (e.g. "always mention: smoke-free home"). Only shapes
+   * title/description/hashtags; never a task of its own (see prompts.ts).
+   */
+  customInstructions: z.string().max(MAX_CUSTOM_INSTRUCTIONS).default(""),
 });
 export type ListingStyle = z.infer<typeof ListingStyle>;
 

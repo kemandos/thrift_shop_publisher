@@ -34,6 +34,7 @@ export default defineContentScript({
 
     let language = settings.language;
     let tone = settings.tone;
+    let instructions = settings.customPrompt;
     let lastAttributes: Attributes | null = null;
     let busy = false;
 
@@ -94,7 +95,7 @@ export default defineContentScript({
           panel.setStatus("Lese Fotos …");
           const photos = await collectPhotos(document, map);
           if (!photos.length) throw new ClientError("Keine Fotos gefunden – erst Fotos hinzufügen.");
-          const report = await fillForm(ctx(), photos, styleFrom(settings, { language, tone }));
+          const report = await fillForm(ctx(), photos, styleFrom(settings, { language, tone, customPrompt: instructions }));
           lastAttributes = report.attributes;
           log.push(`Ergebnis: gefüllt ${report.filled.join(", ") || "–"}; offen ${report.unresolved.map((u) => u.key).join(", ") || "–"}`);
           panel.showResult(report.unresolved, true);
@@ -105,9 +106,13 @@ export default defineContentScript({
         const attrs = lastAttributes;
         void run(async () => {
           panel.setStatus("Schreibe Text neu …");
-          await rewriteText(ctx(), attrs, styleFrom(settings, { language, tone }));
+          await rewriteText(ctx(), attrs, styleFrom(settings, { language, tone, customPrompt: instructions }));
           panel.setStatus("Text aktualisiert – bitte prüfen");
         });
+      },
+      onInstructionsChange: (text) => {
+        instructions = text;
+        if (lastAttributes) panel.setStatus("Tippe „Neu schreiben“, um die Anweisung anzuwenden.");
       },
       onStyleChange: (l, t) => {
         const changed = l !== language || t !== tone;
@@ -128,6 +133,7 @@ export default defineContentScript({
       },
     });
     panel.setStyle(language, tone);
+    panel.setInstructions(instructions);
     panel.setLayout({ dock: settings.panelDock, collapsed: settings.panelCollapsed });
 
     const configured = () => (settings.mode === "server" ? !!(settings.serverUrl && settings.serverToken) : !!settings.apiKey);

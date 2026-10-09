@@ -1,4 +1,4 @@
-import { isVisible, norm, pressEscape, safeClick, setNativeValue, textOf, waitFor, type Pacer } from "./core";
+import { humanClick, isVisible, norm, pressEscape, textOf, typeText, waitFor, type Pacer } from "./core";
 import { isForbidden } from "./guard";
 
 export interface Option {
@@ -13,6 +13,9 @@ export interface Option {
 const OPTION_SELECTOR =
   "[role=option], [role=menuitem], [role=menuitemradio], [role=menuitemcheckbox], [role=radio], [role=checkbox], [role=treeitem], " +
   "[role=button], [role=link], li, label, button, a, [data-testid*='option'], [data-testid*='item'], [tabindex]:not([tabindex='-1'])";
+
+/** Helper links inside pickers that are never an option ("Größentabelle", "Erfahre mehr", …). */
+const HELP_LINKS = /^(grossentabelle|großentabelle|erfahre mehr|mehr erfahren|hilfe|size guide|learn more|mehr anzeigen|show more)$/;
 
 function lines(el: Element): string[] {
   const raw = (el as HTMLElement).innerText ?? el.textContent ?? "";
@@ -35,11 +38,13 @@ const isPointer = (el: Element) => el.ownerDocument.defaultView?.getComputedStyl
  * Clickable rows that are plain elements styled with cursor:pointer (common in React UIs such as
  * Vinted's dropdown "cells"): the outermost pointer element of each row inside the picker roots.
  */
-function pointerRows(roots: Element[], limit = 600): Element[] {
+function pointerRows(roots: Element[], accept: (el: Element) => boolean, limit = 600): Element[] {
   const out: Element[] = [];
   let seen = 0;
   for (const root of roots) {
     for (const el of [root, ...Array.from(root.querySelectorAll("*"))]) {
+      // Elements that were visible before the picker opened are skipped cheaply (big roots stay fast).
+      if (!accept(el)) continue;
       if (++seen > limit) return out;
       if (!(el instanceof HTMLElement) || !isPointer(el)) continue;
       // cursor is inherited: a row is a pointer element whose parent is not (or is the picker root itself).
@@ -69,7 +74,7 @@ export function candidates(
     // Neither the AI nor the filler is ever offered a publish-like option.
     if (isForbidden(el, forbidden)) return;
     const o = toOption(el);
-    if (!o) return;
+    if (!o || HELP_LINKS.test(norm(o.label))) return;
     const key = `${norm(o.label)}|${norm(o.detail)}`;
     if (seen.has(key)) return;
     seen.add(key);
@@ -81,7 +86,7 @@ export function candidates(
     // Skip wrappers that contain other option candidates (keep the innermost clickable).
     .filter((el) => el.tagName === "LABEL" || !el.querySelector("[role=option], li, button, [role=button]"));
   for (const el of semantic) add(el);
-  for (const row of pointerRows(roots)) {
+  for (const row of pointerRows(roots, accept)) {
     // A row already represented by a semantic element inside it is skipped.
     if (out.some((o) => row.contains(o.el) || o.el.contains(row))) continue;
     add(row);
@@ -89,16 +94,36 @@ export function candidates(
   return out;
 }
 
-/** Records elements added to the page after it starts (the opened dropdown/modal). */
-function watchAdded(doc: Document) {
-  const added = new Set<Element>();
+/** Fast visibility for whole-page snapshots (checkVisibility where supported). */
+function visibleNow(el: Element): boolean {
+  const cv = (el as Element & { checkVisibility?: (o?: object) => boolean }).checkVisibility;
+  return typeof cv === "function" ? cv.call(el, { visibilityProperty: true, opacityProperty: false }) : isVisible(el);
+}
+
+/**
+ * Records what an opened picker changed on the page: elements that were added (rendered on open)
+ * and elements whose class/style/hidden/aria state changed and are now visible (pre-rendered
+ * dropdowns that are only shown on open).
+ */
+function watchPicker(doc: Document) {
+  const touched = new Set<Element>();
   const obs = new MutationObserver((records) => {
-    for (const r of records) for (const n of Array.from(r.addedNodes)) if (n instanceof Element) added.add(n);
+    for (const r of records) {
+      if (r.type === "childList") for (const n of Array.from(r.addedNodes)) if (n instanceof Element) touched.add(n);
+      if (r.type === "attributes" && r.target instanceof Element) touched.add(r.target);
+    }
   });
-  obs.observe(doc.documentElement, { childList: true, subtree: true });
+  obs.observe(doc.documentElement, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ["class", "style", "hidden", "aria-hidden", "aria-expanded", "open", "data-state"],
+  });
   return {
     roots(): Element[] {
-      const live = Array.from(added).filter((e) => e.isConnected && !e.closest("[data-thrift-ui]"));
+      const live = Array.from(touched).filter(
+        (e) => e.isConnected && e !== doc.body && e !== doc.documentElement && !e.closest("[data-thrift-ui]") && visibleNow(e),
+      );
       return live.filter((e) => !live.some((o) => o !== e && o.contains(e)));
     },
     stop: () => obs.disconnect(),
@@ -127,16 +152,16 @@ export async function openPicker(
   pace: Pacer,
   timeoutMs = 2000,
 ): Promise<PickerSession> {
-  // Everything already on the page is never an option of this picker (not just per label: several
-  // "Auswählen" triggers share a label, and one of them must never look "new" later).
-  const before = new Set(Array.from(doc.querySelectorAll("*")));
-  const watch = watchAdded(doc);
+  // Anything that was already visible is never an option of this picker (per element, not per label:
+  // several "Auswählen" triggers share a label, and one of them must never look "new" later).
+  const before = new Set(Array.from(doc.querySelectorAll("body *")).filter(visibleNow));
+  const watch = watchPicker(doc);
   const scan = () => {
-    // Options live inside what the picker added (dropdown/modal), when we saw it being added.
-    const roots = watch.roots().filter((r) => !trigger.contains(r));
+    // Options live inside what the picker added or showed (dropdown/modal), when we saw that happen.
+    const roots = watch.roots();
     return candidates(doc, forbidden, roots, (el) => !before.has(el) && el !== trigger && !trigger.contains(el));
   };
-  safeClick(trigger, forbidden);
+  await humanClick(trigger, forbidden, pace);
   await pace.step();
   const opts = (await waitFor(() => {
     const fresh = scan();
@@ -243,7 +268,7 @@ export function findPickerSearch(doc: Document, session: PickerSession): HTMLInp
 export async function searchInPicker(doc: Document, session: PickerSession, query: string, pace: Pacer): Promise<Option[] | null> {
   const search = findPickerSearch(doc, session);
   if (!search) return null;
-  setNativeValue(search, query, { blur: false });
+  await typeText(search, query, pace);
   await pace.step();
   const q = norm(query);
   const res = await waitFor(() => {
@@ -256,7 +281,7 @@ export async function searchInPicker(doc: Document, session: PickerSession, quer
 export async function clearPickerSearch(doc: Document, session: PickerSession, pace: Pacer): Promise<void> {
   const search = findPickerSearch(doc, session);
   if (!search || !search.value) return;
-  setNativeValue(search, "", { blur: false });
+  await typeText(search, "", pace);
   await pace.step();
 }
 

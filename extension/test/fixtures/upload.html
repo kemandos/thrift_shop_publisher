@@ -19,6 +19,10 @@
   .modal { position: fixed; inset: 0; background: #fff; padding: 16px; overflow: auto; z-index: 10; }
   .cell { cursor: pointer; padding: 8px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
   .cell .sub { color: #666; font-size: 12px; }
+  .dd { display: none; border: 1px solid #aaa; padding: 8px; }
+  .dd.open { display: block; }
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .tile { cursor: pointer; border: 1px solid #ccc; border-radius: 6px; padding: 10px; text-align: center; }
   .section { color: #666; font-size: 13px; padding: 8px 8px 4px; }
   .photos img { width: 80px; height: 100px; object-fit: cover; margin: 4px; }
 </style>
@@ -199,9 +203,31 @@
       search.addEventListener("input", () => render(search.value));
       render("");
     });
+    // Size: like vinted.de – pre-rendered and only shown on open; info box, help links; tiles whose
+    // click handler sits on the inner text element (a click on the tile itself does nothing).
+    const sizeDd = mk("div", "dd");
+    const info = mk("div", "", "Wähle die Größe vom Etikett – wir kümmern uns um den Rest");
+    const more = mk("a", "", "Erfahre mehr"); more.href = "/help/size";
+    info.append(" ", more);
+    const head = mk("div");
+    head.append(mk("span", "", "S/M/L"), " ");
+    const table = mk("button", "", "Größentabelle"); table.type = "button";
+    table.addEventListener("click", () => { state.sizeTable = true; });
+    head.append(table);
+    const tiles = mk("div", "tiles");
+    for (const sz of [...SIZES, "XXL", "XXXL", "4XL"]) {
+      const tile = mk("div", "tile");
+      const txt = mk("span", "", sz);
+      txt.addEventListener("click", (e) => { e.stopPropagation(); state.size = sz; inputs.size.value = sz; sizeDd.classList.remove("open"); open = null; });
+      tile.append(txt);
+      tiles.append(tile);
+    }
+    sizeDd.append(info, head, tiles);
+    inputs.size.after(sizeDd);
     inputs.size.addEventListener("click", () => {
-      const panel = makePanel(inputs.size);
-      for (const sz of SIZES) panel.append(cell(sz, "", () => choose("size", sz, sz)));
+      closeOpen();
+      sizeDd.classList.add("open");
+      open = { panel: { remove: () => sizeDd.classList.remove("open") } };
     });
     inputs.condition.addEventListener("click", () => {
       const panel = makePanel(inputs.condition);
