@@ -226,12 +226,21 @@ test.describe("vinted.de structure (div rows, search, suggestions)", () => {
     expect(log.join("\n")).toContain("brand: Suche „COS“: COS | Cos Bar");
   });
 
-  test("brand list not loaded on first open: the picker is opened once more", async ({ page }) => {
+  test("two colours when Haiku sees two (Beige + Creme)", async ({ page }) => {
+    await open(page, "vinted");
+    await addPhotos(page, 1);
+    const { state } = await runFill(page, "label", { ...STUB_ATTRIBUTES, colors: ["Beige", "Creme"] });
+    expect(state.colors).toEqual(["Beige", "Creme"]);
+  });
+
+  test("brand list not loaded on first open: the picker is opened once more, quickly", async ({ page }) => {
     await routeVinted(page);
     await page.goto("https://www.vinted.de/items/new?variant=vinted&slowbrand=1");
     await page.addScriptTag({ content: harness });
     await addPhotos(page, 1);
+    const started = Date.now();
     const { state, log } = await runFill(page);
+    expect(Date.now() - started).toBeLessThan(9_000);
     expect(state.brand).toBe("COS");
     expect(log.join("\n")).toContain("brand: Markenliste noch nicht geladen – öffne erneut");
   });

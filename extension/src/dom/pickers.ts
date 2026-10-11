@@ -16,7 +16,9 @@ const OPTION_SELECTOR =
 
 /** Helper links inside pickers that are never an option ("Größentabelle", "Erfahre mehr", …). */
 const HELP_LINKS =
-  /^(infos? zu|gro(ss|ß)entabelle|erfahre mehr|mehr erfahren|mehr anzeigen|hilfe|size guide|learn more|show more|suche\b|search for)/;
+  /^(infos? zu|mehr infos|gro(ss|ß)entabelle|erfahre mehr|mehr erfahren|mehr anzeigen|hilfe|size guide|learn more|show more|suche\b|search for|sieh dir an)/;
+/** Prices ("2,00 €") belong to Vinted's price suggestions, never to a picker. */
+const PRICE_LABEL = /^\d+([.,]\d{1,2})?\s*€/;
 
 function lines(el: Element): string[] {
   const raw = (el as HTMLElement).innerText ?? el.textContent ?? "";
@@ -76,7 +78,7 @@ export function candidates(
     // Neither the AI nor the filler is ever offered a publish-like option.
     if (isForbidden(el, forbidden)) return;
     const o = toOption(el);
-    if (!o || HELP_LINKS.test(norm(o.label))) return;
+    if (!o || HELP_LINKS.test(norm(o.label)) || PRICE_LABEL.test(o.label.trim())) return;
     const key = `${norm(o.label)}|${norm(o.detail)}`;
     if (seen.has(key)) return;
     seen.add(key);
@@ -280,9 +282,15 @@ export function findPickerSearch(doc: Document, session: PickerSession): HTMLInp
 }
 
 /** Types into the picker's search box and returns the options shown for that query. */
-export async function searchInPicker(doc: Document, session: PickerSession, query: string, pace: Pacer): Promise<Option[] | null> {
+export async function searchInPicker(
+  doc: Document,
+  session: PickerSession,
+  query: string,
+  pace: Pacer,
+  waitMs = 4000,
+): Promise<Option[] | null> {
   // The picker may render its search box a moment after opening.
-  const search = await waitFor(() => findPickerSearch(doc, session), 4000);
+  const search = await waitFor(() => findPickerSearch(doc, session), waitMs);
   if (!search) return null;
   await typeText(search, query, pace);
   await pace.step();

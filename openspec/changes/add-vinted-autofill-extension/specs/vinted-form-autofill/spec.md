@@ -104,7 +104,11 @@ If Vinted does not detect the brand, the extension SHALL type it into the brand 
 
 #### Scenario: Brand list loads late
 - **WHEN** the brand picker is still empty on first opening (vinted.de loads the list on demand)
-- **THEN** the extension waits up to about 5 seconds for "Marke suchen" and otherwise opens the picker once more
+- **THEN** the extension waits briefly (about 1.5 seconds) and opens the picker once more, then waits up to about 5 seconds for "Marke suchen"
+
+#### Scenario: Two colours
+- **WHEN** the analysis lists two colours (e.g. Beige and Creme)
+- **THEN** both are ticked, as Vinted allows up to two
 
 #### Scenario: Catalog search in the header
 - **WHEN** the page has a catalog search at the top and the brand picker has "Marke suchen"

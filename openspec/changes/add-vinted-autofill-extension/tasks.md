@@ -51,6 +51,8 @@
 
 - [x] 4.20 Analysis lists visible features (hohe Taille, Länge, Schnitt …); used for direct leaf/extra matching and given to Decision-1; verify "Shorts mit hoher Taille" test
 
+- [x] 4.21 Fifth vinted.de log (all fields filled): quicker brand reopen (~3 s instead of ~9 s), up to two colours, colour guidance (Creme/Beige/Khaki), price/info rows never options
+
 ## 5. Settings and Chrome release (spec: extension-settings)
 
 - [x] 5.1 Build popup (Artikel verkaufen, last cost, month total) and options page (AI mode, key with test, server URL/token, language and tone lists, closing texts); verify unit/UI tests and masked key display

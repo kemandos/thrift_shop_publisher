@@ -376,7 +376,8 @@ async function fillList(ctx: FillContext, key: ChooseField, attrs: Attributes, w
       // The brand list may start empty (only a help row): search anyway.
       if (!options.length && key !== "brand") return "none" as const;
       if (key === "brand" && want) {
-        const found = await searchInPicker(ctx.doc, session, want, ctx.pace);
+        // First opening: short wait (vinted.de often loads the list only then), the reopening is patient.
+        const found = await searchInPicker(ctx.doc, session, want, ctx.pace, round === 0 ? 800 : 4000);
         if (found) {
           options = found;
           ctx.log?.(`${key}: Suche „${want}“: ${optionList(options)}`);
@@ -427,7 +428,7 @@ async function fillList(ctx: FillContext, key: ChooseField, attrs: Attributes, w
       }
       ctx.log?.(`${key}: Feld zeigt jetzt „${displayedValue(trigger)}“`);
       return ok ? ("ok" as const) : ("retry" as const);
-    }, key === "brand" ? 5000 : 2000);
+    }, key === "brand" ? (round === 0 ? 1500 : 5000) : 2000);
     if (result === "ok") return chosen!.label;
     if (result === "none") return null;
     await ctx.pace.step();
@@ -777,6 +778,10 @@ async function fillFormUnlocked(ctx: FillContext, photos: Photo[], style: Listin
           ? await fillSuggested(ctx, "material").catch(failed(key))
           : await fillList(ctx, key, attrs, want).catch(failed(key));
       done(key, !!chosen, want ?? "");
+      // Vinted allows two colours: add the second one Haiku saw (e.g. "Creme" and "Beige").
+      if (key === "color" && chosen && attrs.colors[1] && norm(attrs.colors[1]) !== norm(attrs.colors[0] ?? "")) {
+        await fillList(ctx, "color", attrs, attrs.colors[1]).catch(failed("color"));
+      }
     }
 
     await fillExtraFields(ctx, attrs).catch(failed("extra"));
