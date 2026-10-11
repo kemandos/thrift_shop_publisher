@@ -10,6 +10,7 @@ describe("settings", () => {
       model: "anthropic/claude-haiku-5.5",
       navModel: "microsoft/microsoft-decision-1",
       thinking: false,
+      photoMaxEdge: 1280,
       language: "de",
       tone: "freundlich",
       noticeAccepted: false,
@@ -30,6 +31,11 @@ describe("settings", () => {
     });
     expect(mergeSettings({ model: "openai/gpt-5-nano" as never }, {}).model).toBe("anthropic/claude-haiku-5.5");
     expect(mergeSettings({ mode: "direct" as never, apiKey: "k" }, {})).toMatchObject({ mode: "openrouter", apiKey: "k" });
+  });
+
+  it("photo size for the AI is 1280 or 1024 px; anything else falls back to 1280", () => {
+    expect(mergeSettings({ photoMaxEdge: 1024 }, {}).photoMaxEdge).toBe(1024);
+    expect(mergeSettings({ photoMaxEdge: 640 as never }, {}).photoMaxEdge).toBe(1280);
   });
 
   it("native (iPhone app) values win over empty local values", () => {

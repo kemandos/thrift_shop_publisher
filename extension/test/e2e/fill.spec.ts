@@ -98,6 +98,21 @@ for (const variant of ["desktop", "mobile"]) {
   });
 }
 
+test("photo size for the AI: 1280 px by default, 1024 px when chosen", async ({ page }) => {
+  await open(page, "desktop");
+  await addPhotos(page, 1);
+  const edges = await page.evaluate(async () => {
+    const T = (window as any).Thrift;
+    const edge = async (max?: number) => {
+      const [p] = await T.collectPhotos(document, T.DEFAULT_FORM_MAP, max);
+      const bmp = await createImageBitmap(await (await fetch(`data:image/jpeg;base64,${p.data}`)).blob());
+      return Math.max(bmp.width, bmp.height);
+    };
+    return [await edge(), await edge(1024)];
+  });
+  expect(edges).toEqual([1280, 1024]);
+});
+
 test.describe("vinted.de structure (div rows, search, suggestions)", () => {
   test("keeps category and brand that Vinted detects from the text; never opens the category picker", async ({ page }) => {
     await routeVinted(page);

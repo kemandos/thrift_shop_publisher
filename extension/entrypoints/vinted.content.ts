@@ -98,8 +98,9 @@ export default defineContentScript({
         }
         void run(async () => {
           panel.setStatus("Lese Fotos …");
-          const photos = await collectPhotos(document, map);
+          const photos = await collectPhotos(document, map, settings.photoMaxEdge);
           if (!photos.length) throw new ClientError("Keine Fotos gefunden – erst Fotos hinzufügen.");
+          log.push(`Fotos: ${photos.length} × max ${settings.photoMaxEdge} px`);
           const report = await fillForm(ctx(), photos, styleFrom(settings, { language, tone, customPrompt: instructions }));
           lastAttributes = report.attributes;
           log.push(`Ergebnis: gefüllt ${report.filled.join(", ") || "–"}; offen ${report.unresolved.map((u) => u.key).join(", ") || "–"}`);

@@ -2,7 +2,10 @@ import type { FormMap, Photo } from "@thrift/shared";
 import { locateBy } from "./locate";
 import { isVisible } from "./core";
 
-const MAX_EDGE = 1280;
+/** Longest edge of the copy sent to the AI (the photos uploaded to Vinted stay untouched). */
+export const PHOTO_EDGES = [1280, 1024] as const;
+export type PhotoEdge = (typeof PHOTO_EDGES)[number];
+export const DEFAULT_PHOTO_EDGE: PhotoEdge = 1280;
 const MAX_PHOTOS = 6;
 
 /** Files the user picked in Vinted's photo input (captured in the capture phase, originals). */
@@ -55,9 +58,9 @@ export function hasPhotos(doc: Document, map: FormMap): boolean {
   return previewImages(doc, map).length > 0 || captured.length > 0;
 }
 
-async function toJpegBase64(blob: Blob): Promise<string> {
+async function toJpegBase64(blob: Blob, maxEdge: number): Promise<string> {
   const bmp = await createImageBitmap(blob);
-  const scale = Math.min(1, MAX_EDGE / Math.max(bmp.width, bmp.height));
+  const scale = Math.min(1, maxEdge / Math.max(bmp.width, bmp.height));
   const w = Math.max(1, Math.round(bmp.width * scale));
   const h = Math.max(1, Math.round(bmp.height * scale));
   let out: Blob;
@@ -81,7 +84,7 @@ async function toJpegBase64(blob: Blob): Promise<string> {
 }
 
 /** Collects up to 6 photos (downscaled JPEG, no metadata). Prefers preview order, falls back to captured files. */
-export async function collectPhotos(doc: Document, map: FormMap): Promise<Photo[]> {
+export async function collectPhotos(doc: Document, map: FormMap, maxEdge: number = DEFAULT_PHOTO_EDGE): Promise<Photo[]> {
   const blobs: Blob[] = [];
   for (const img of previewImages(doc, map).slice(0, MAX_PHOTOS)) {
     try {
@@ -93,6 +96,6 @@ export async function collectPhotos(doc: Document, map: FormMap): Promise<Photo[
   }
   if (!blobs.length) blobs.push(...captured.slice(0, MAX_PHOTOS));
   const photos: Photo[] = [];
-  for (const b of blobs) photos.push({ mediaType: "image/jpeg", data: await toJpegBase64(b) });
+  for (const b of blobs) photos.push({ mediaType: "image/jpeg", data: await toJpegBase64(b, maxEdge) });
   return photos;
 }

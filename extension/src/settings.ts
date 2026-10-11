@@ -27,6 +27,8 @@ export const Settings = z.object({
   navModel: NavModel.catch(DEFAULT_NAV_MODEL),
   /** Let the text model think (reasoning): more careful, but slower and pricier. Default off. */
   thinking: z.boolean().catch(false),
+  /** Longest photo edge sent to the AI: 1280 reads labels best, 1024 is faster and cheaper. */
+  photoMaxEdge: z.union([z.literal(1280), z.literal(1024)]).catch(1280),
   serverUrl: z.string().default(""),
   serverToken: z.string().default(""),
   language: Language.default("de"),

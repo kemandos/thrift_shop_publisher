@@ -17,6 +17,13 @@ The settings SHALL offer two modes: "OpenRouter (eigener Key)" (default; direct 
 - **WHEN** the user enters their server URL and token
 - **THEN** all AI requests go to that server and no OpenRouter key is stored in the extension
 
+### Requirement: Photo size for the AI
+The settings SHALL offer the longest edge of the photo copies sent to the AI: 1280 px (default, labels read best) or 1024 px (faster, cheaper). Other values SHALL fall back to 1280 px. The photos uploaded to Vinted SHALL stay unchanged.
+
+#### Scenario: Smaller photos chosen
+- **WHEN** the user chooses 1024 px and fills a listing
+- **THEN** every photo copy sent to the AI is at most 1024 px on its long edge and the log shows the photo count and size
+
 ### Requirement: Model choice
 The settings SHALL offer, for "Fotos & Text", Claude Haiku 5.5 (default) or Qwen3.7 Flash, and for "Klicken & Navigieren", Microsoft Decision-1 (default, a decision model), Claude Haiku 5.5 or Qwen3.7 Flash. Other values SHALL fall back to these defaults. A "Denken" switch (default off) SHALL turn reasoning on or off for all chat models; OpenRouter SHALL route to the cheapest provider that supports the request.
 

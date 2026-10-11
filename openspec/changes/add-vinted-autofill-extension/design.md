@@ -45,7 +45,7 @@ See `proposal.md`. Constraints:
 
 - **Photos:**
   1. The content script observes Vinted's photo grid. For each preview `<img>` (blob: or https URL from the page), it fetches the image in page context.
-  2. It downscales the image to ≤1280 px on the long edge with `OffscreenCanvas`, re-encodes it as JPEG and strips metadata.
+  2. It downscales the image to ≤1280 px (or ≤1024 px, a setting) on the long edge with `OffscreenCanvas`, re-encodes it as JPEG and strips metadata.
   3. It sends the result to the background worker. Originals stay in Vinted's form untouched.
   4. Fallback: capture `File` objects from the photo `<input type=file>` `change` event.
 - **Options:** for each picker field (category tree, size, condition, colour, brand search), the filler opens it programmatically, reads the visible option labels, and closes it again.
