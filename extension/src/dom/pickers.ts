@@ -140,6 +140,8 @@ export interface PickerSession {
   scan(): Option[];
   /** Compact DOM outline of the picker, for the fill log. */
   outline(maxNodes?: number): string;
+  /** True for elements that appeared (or became visible) with the picker – not the rest of the page. */
+  isFresh(el: Element): boolean;
   dispose(): void;
 }
 
@@ -174,6 +176,7 @@ export async function openPicker(
     options: opts,
     scan,
     outline: (max = 60) => outline(watch.roots(), max),
+    isFresh: (el) => !before.has(el),
     dispose: () => watch.stop(),
   };
 }
@@ -259,20 +262,27 @@ export async function closePicker(trigger: Element, doc: Document): Promise<void
   (trigger as HTMLElement).blur?.();
 }
 
-/** The search box inside an open picker (Vinted: "Finde eine Kategorie", "Marke suchen"). */
+/**
+ * The search box inside an open picker (Vinted: "Finde eine Kategorie", "Marke suchen"). Only an input
+ * that appeared with the picker counts – never one that was visible before, such as Vinted's catalog
+ * search in the page header.
+ */
 export function findPickerSearch(doc: Document, session: PickerSession): HTMLInputElement | null {
   const inputs = Array.from(doc.querySelectorAll<HTMLInputElement>("input[type=search], input[type=text], input:not([type])")).filter(
-    (i) => isVisible(i) && i !== session.trigger && !session.trigger.contains(i) && !i.closest("[data-thrift-ui]"),
+    (i) =>
+      session.isFresh(i) &&
+      isVisible(i) &&
+      i !== session.trigger &&
+      !session.trigger.contains(i) &&
+      !i.closest("[data-thrift-ui], header, nav, [role=search], [role=banner]"),
   );
-  return (
-    inputs.find((i) => /such|search|finde|find|filter/i.test(`${i.placeholder} ${i.getAttribute("aria-label") ?? ""}`)) ??
-    null
-  );
+  return inputs.find((i) => /such|search|finde|find|filter/i.test(`${i.placeholder} ${i.getAttribute("aria-label") ?? ""}`)) ?? inputs[0] ?? null;
 }
 
 /** Types into the picker's search box and returns the options shown for that query. */
 export async function searchInPicker(doc: Document, session: PickerSession, query: string, pace: Pacer): Promise<Option[] | null> {
-  const search = findPickerSearch(doc, session);
+  // The picker may render its search box a moment after opening.
+  const search = await waitFor(() => findPickerSearch(doc, session), 1500);
   if (!search) return null;
   await typeText(search, query, pace);
   await pace.step();

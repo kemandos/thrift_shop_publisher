@@ -207,13 +207,14 @@ test.describe("vinted.de structure (div rows, search, suggestions)", () => {
     expect(log.join("\n")).toContain("material: kein Etikett – nehme Vinteds Vorschlag „Baumwolle“");
   });
 
-  test("brands rendered as links are selected without leaving the page; help rows are ignored", async ({ page }) => {
+  test("brand is searched in the brand picker's own box, never in the catalog search of the header", async ({ page }) => {
     await open(page, "vinted");
     await addPhotos(page, 1);
-    const { state } = await runFill(page);
+    const { state, log } = await runFill(page);
     expect(page.url()).toContain("/items/new");
     expect(state.brand).toBe("COS");
-    expect(await page.evaluate(() => (window as any).__state.brandHelp)).toBeUndefined();
+    expect((state as any).catalogSearch).toBeUndefined();
+    expect(log.join("\n")).toContain("brand: Suche „COS“: COS | Cos Bar");
   });
 
   test("brand without an exact match is left for the user (never a similar name)", async ({ page }) => {

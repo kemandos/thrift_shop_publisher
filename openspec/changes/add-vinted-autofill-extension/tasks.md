@@ -45,6 +45,8 @@
 
 - [x] 4.17 Microsoft Decision-1 for navigation via OpenRouter's Decisions API (choice questions, confidence ≥ 60 %, "none" where allowed, chat fallback) in extension and server; settings with separate text/navigation model lists; verify unit tests with the real response shape
 
+- [x] 4.18 Brand typed only into a search box that appeared with the picker (never Vinted's header catalog search); fixture with a header search and radio brand rows
+
 ## 5. Settings and Chrome release (spec: extension-settings)
 
 - [x] 5.1 Build popup (Artikel verkaufen, last cost, month total) and options page (AI mode, key with test, server URL/token, language and tone lists, closing texts); verify unit/UI tests and masked key display

@@ -28,6 +28,10 @@
 </style>
 </head>
 <body>
+<header id="siteHeader">
+  <input id="catalogSearch" type="text" placeholder="Suche nach Artikeln">
+  <ul id="catalogSuggestions"></ul>
+</header>
 <h1>Artikel verkaufen</h1>
 <form id="itemForm">
 <h2>Fotos</h2>
@@ -64,6 +68,16 @@
     if (!mobile && id === "title") el.setAttribute("data-testid", "title--input");
     el.addEventListener("input", (e) => { state[id] = e.target.value; });
   }
+  // Vinted's catalog search in the header: suggestions are links. Thrift must never use it.
+  document.getElementById("catalogSearch").addEventListener("input", (e) => {
+    state.catalogSearch = e.target.value;
+    const ul = document.getElementById("catalogSuggestions");
+    ul.replaceChildren();
+    for (const t of [e.target.value, e.target.value + " damen"]) {
+      const li = document.createElement("li"); const a = document.createElement("a"); a.href = "/catalog?search_text=" + encodeURIComponent(t);
+      const b = document.createElement("b"); b.textContent = t.toLowerCase(); a.append(b); li.append(a); ul.append(li);
+    }
+  });
   document.getElementById("upload").addEventListener("click", () => { state.submitted = true; });
   document.getElementById("draft").addEventListener("click", () => { state.draft = true; });
   document.getElementById("itemForm").addEventListener("submit", (e) => { e.preventDefault(); state.submitted = true; });
@@ -239,24 +253,18 @@
       });
     });
 
-    // Brand rows are links on vinted.de; a help row and a "Suche" row are mixed in.
+    // Brand: like vinted.de – own search box "Marke suchen", "Beliebte Marken" first, rows with radio buttons.
     inputs.brand.addEventListener("click", () => {
       const panel = makePanel(inputs.brand);
-      const search = mk("input"); search.placeholder = "Finde eine Marke"; panel.append(search);
+      const search = mk("input"); search.placeholder = "Marke suchen"; panel.append(search);
       const holder = mk("ul"); panel.append(holder);
+      const POPULAR = ["Zara", "H&M", "Shein", "Primark"];
       const render = (q) => {
         holder.replaceChildren();
-        const help = mk("li"); const hb = mk("button", "", "Infos zu Größen und Entschädigungen"); hb.type = "button";
-        hb.addEventListener("click", () => { state.brandHelp = true; }); help.append(hb); holder.append(help);
-        // Like vinted.de: before typing only the help row is shown.
-        for (const b of q ? BRANDS.filter((b) => b.toLowerCase().includes(q.toLowerCase())) : []) {
-          const li = mk("li"); li.style.cursor = "pointer";
-          const a = mk("a"); a.href = "/brand/" + encodeURIComponent(b);
-          const bold = mk("b", "", b.toLowerCase()); a.append(bold);
-          a.addEventListener("click", () => choose("brand", b, b)); // no preventDefault: navigation must be stopped by Thrift
-          li.append(a); holder.append(li);
+        if (!q) holder.append(mk("div", "section", "Beliebte Marken"));
+        for (const b of q ? BRANDS.filter((b) => b.toLowerCase().includes(q.toLowerCase())) : POPULAR) {
+          holder.append(inputRow(b, "", "radio", () => choose("brand", b, b)));
         }
-        if (q) { const li = mk("li"); const sb = mk("button", "", `Suche "${q}"`); sb.type = "button"; li.append(sb); holder.append(li); }
       };
       search.addEventListener("input", () => render(search.value));
       render("");
@@ -302,13 +310,13 @@
       open = { panel: { remove: () => sizeDd.classList.remove("open") } };
     });
     // Condition and colour: like vinted.de, only the radio/checkbox inside the row reacts.
-    const inputRow = (title, sub, type, onChange) => {
+    function inputRow(title, sub, type, onChange) {
       const li = mk("li"); li.style.cursor = "pointer";
       const t = mk("div", "", title); li.append(t);
       if (sub) li.append(mk("div", "sub", sub));
       const box = mk("input"); box.type = type; box.addEventListener("change", () => onChange(box)); li.append(box);
       return li;
-    };
+    }
     inputs.condition.addEventListener("click", () => {
       const panel = makePanel(inputs.condition);
       const hints = { "Sehr gut": "Ein nur selten benutzter Artikel", Gut: "Ein benutzter Artikel" };
