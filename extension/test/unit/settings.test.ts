@@ -17,12 +17,17 @@ describe("settings", () => {
   });
 
   it("only allows Haiku and Jev; anything else falls back to the default", () => {
-    expect(mergeSettings({ model: "typesafe/jev-router", navModel: "anthropic/claude-haiku-5.5" }, {})).toMatchObject({
-      model: "typesafe/jev-router",
+    expect(mergeSettings({ model: "qwen/qwen3.7-flash", navModel: "anthropic/claude-haiku-5.5" }, {})).toMatchObject({
+      model: "qwen/qwen3.7-flash",
       navModel: "anthropic/claude-haiku-5.5",
     });
     expect(mergeSettings({ model: "qwen/qwen3.7-flash" }, {}).model).toBe("qwen/qwen3.7-flash");
-    expect(mergeSettings({ model: "deepseek/deepseek-v4.1-flash" }, {}).model).toBe("deepseek/deepseek-v4.1-flash");
+    // Removed models (owner's choice) fall back to the defaults.
+    expect(mergeSettings({ model: "deepseek/deepseek-v4.1-flash" as never }, {}).model).toBe("anthropic/claude-haiku-5.5");
+    expect(mergeSettings({ model: "typesafe/jev-router" as never, navModel: "typesafe/jev-router" as never }, {})).toMatchObject({
+      model: "anthropic/claude-haiku-5.5",
+      navModel: "microsoft/microsoft-decision-1",
+    });
     expect(mergeSettings({ model: "openai/gpt-5-nano" as never }, {}).model).toBe("anthropic/claude-haiku-5.5");
     expect(mergeSettings({ mode: "direct" as never, apiKey: "k" }, {})).toMatchObject({ mode: "openrouter", apiKey: "k" });
   });

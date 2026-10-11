@@ -73,6 +73,7 @@ export default defineContentScript({
       // Settings may have changed in the options page since this page loaded (model, thinking, key).
       settings = await bg.get("getSettings").catch(() => settings);
       log = [logHeader()];
+      const runStarted = Date.now();
       panel.setBusy(true);
       try {
         await fn();
@@ -80,6 +81,7 @@ export default defineContentScript({
         log.push(`Fehler: ${e instanceof Error ? e.message : String(e)}`);
         panel.setStatus(friendlyError(e, settings.mode), true);
       } finally {
+        log.push(`Gesamtdauer: ${((Date.now() - runStarted) / 1000).toFixed(1)} s`);
         panel.setLog(log.join("\n"));
         busy = false;
         panel.setBusy(false);

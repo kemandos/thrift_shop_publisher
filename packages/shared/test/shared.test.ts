@@ -291,7 +291,7 @@ describe("openrouter", () => {
         },
       },
     ]);
-    const r = await choose(openRouterLlm({ apiKey: "k", model: "deepseek/deepseek-v4.1-flash", fetch: f as unknown as typeof fetch }), {
+    const r = await choose(openRouterLlm({ apiKey: "k", model: "qwen/qwen3.7-flash", fetch: f as unknown as typeof fetch }), {
       field: "size",
       attributes: attrs,
       options: ["S", "M"],
@@ -300,12 +300,30 @@ describe("openrouter", () => {
     expect(JSON.parse(f.mock.calls[0]![1].body as string).reasoning).toEqual({ enabled: false });
   });
 
-  it("uses the chosen model (Jev Router)", async () => {
-    const f = fakeFetch([reply({ choice: "M" })]);
-    const llm = openRouterLlm({ apiKey: "k", model: "typesafe/jev-router", fetch: f as unknown as typeof fetch });
+  it("a provider that hangs is abandoned after the timeout and retried once", async () => {
+    let calls = 0;
+    const f = vi.fn(async (_url: string, init: RequestInit) => {
+      calls++;
+      if (calls === 1) {
+        // Never answers: only the abort signal ends it.
+        return new Promise<Response>((_, reject) =>
+          init.signal!.addEventListener("abort", () => reject(new DOMException("timed out", "TimeoutError"))),
+        );
+      }
+      return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ choice: "M" }) }, finish_reason: "stop" }], usage: {} }));
+    });
+    const llm = openRouterLlm({ apiKey: "k", model: "qwen/qwen3.7-flash", fetch: f as unknown as typeof fetch, timeoutMs: 50 });
     const r = await choose(llm, { field: "size", attributes: attrs, options: ["S", "M"] });
     expect(r.result.choice).toBe("M");
-    expect(JSON.parse(f.mock.calls[0]![1].body as string).model).toBe("typesafe/jev-router");
+    expect(f).toHaveBeenCalledTimes(2);
+  });
+
+  it("uses the chosen model (Qwen3.7 Flash)", async () => {
+    const f = fakeFetch([reply({ choice: "M" })]);
+    const llm = openRouterLlm({ apiKey: "k", model: "qwen/qwen3.7-flash", fetch: f as unknown as typeof fetch });
+    const r = await choose(llm, { field: "size", attributes: attrs, options: ["S", "M"] });
+    expect(r.result.choice).toBe("M");
+    expect(JSON.parse(f.mock.calls[0]![1].body as string).model).toBe("qwen/qwen3.7-flash");
   });
 
   it("strict schema: every object closed and fully required", () => {

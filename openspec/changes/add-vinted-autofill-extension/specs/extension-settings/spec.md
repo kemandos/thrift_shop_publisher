@@ -18,7 +18,7 @@ The settings SHALL offer two modes: "OpenRouter (eigener Key)" (default; direct 
 - **THEN** all AI requests go to that server and no OpenRouter key is stored in the extension
 
 ### Requirement: Model choice
-The settings SHALL offer, for "Fotos & Text", Claude Haiku 5.5 (default), Qwen3.7 Flash, DeepSeek V4.1 Flash or Jev Router, and for "Klicken & Navigieren", Microsoft Decision-1 (default, a decision model), Claude Haiku 5.5 or Jev Router. Other values SHALL fall back to these defaults. A "Denken" switch (default off) SHALL turn reasoning on or off for all chat models; OpenRouter SHALL route to the cheapest provider that supports the request.
+The settings SHALL offer, for "Fotos & Text", Claude Haiku 5.5 (default) or Qwen3.7 Flash, and for "Klicken & Navigieren", Microsoft Decision-1 (default, a decision model), Claude Haiku 5.5 or Qwen3.7 Flash. Other values SHALL fall back to these defaults. A "Denken" switch (default off) SHALL turn reasoning on or off for all chat models; OpenRouter SHALL route to the cheapest provider that supports the request.
 
 #### Scenario: Thinking off
 - **WHEN** "Denken" is off (default)

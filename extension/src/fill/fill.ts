@@ -67,7 +67,7 @@ export interface FillContext {
   status?: (msg: string) => void;
   /** Title + description of this fill, given to the navigation model as context. */
   listingText?: string;
-  /** How long to wait for Vinted's own category/brand detection (default 2 s; continues as soon as both are set). */
+  /** How long to wait for Vinted's own category/brand detection (default 1 s; continues as soon as both are set). */
   vintedWaitMs?: number;
   /** Fill log for "Protokoll kopieren" (what was seen and chosen; no photos, no keys). */
   log?: (line: string) => void;
@@ -377,7 +377,7 @@ async function fillList(ctx: FillContext, key: ChooseField, attrs: Attributes, w
       if (!options.length && key !== "brand") return "none" as const;
       if (key === "brand" && want) {
         // First opening: short wait (vinted.de often loads the list only then), the reopening is patient.
-        const found = await searchInPicker(ctx.doc, session, want, ctx.pace, round === 0 ? 800 : 4000);
+        const found = await searchInPicker(ctx.doc, session, want, ctx.pace, round === 0 ? 400 : 4000);
         if (found) {
           options = found;
           ctx.log?.(`${key}: Suche „${want}“: ${optionList(options)}`);
@@ -428,7 +428,7 @@ async function fillList(ctx: FillContext, key: ChooseField, attrs: Attributes, w
       }
       ctx.log?.(`${key}: Feld zeigt jetzt „${displayedValue(trigger)}“`);
       return ok ? ("ok" as const) : ("retry" as const);
-    }, key === "brand" ? (round === 0 ? 1500 : 5000) : 2000);
+    }, key === "brand" ? (round === 0 ? 800 : 5000) : 2000);
     if (result === "ok") return chosen!.label;
     if (result === "none") return null;
     await ctx.pace.step();
@@ -719,7 +719,7 @@ async function fillFormUnlocked(ctx: FillContext, photos: Photo[], style: Listin
   say("Warte auf Vinteds Vorschlag für Kategorie und Marke …");
   // Already set before (by Vinted or the user) counts too: Thrift never overwrites it.
   const both = () => looksSet(catTrigger) && (looksSet(brandTrigger) || !a.brand);
-  await waitUntil(both, ctx.vintedWaitMs ?? 2000);
+  await waitUntil(both, ctx.vintedWaitMs ?? 1000);
   const catByVinted = looksSet(catTrigger);
   const brandByVinted = looksSet(brandTrigger);
   ctx.log?.(

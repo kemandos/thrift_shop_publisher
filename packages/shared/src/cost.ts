@@ -11,7 +11,6 @@ export const PRICING_USD_PER_MTOK: Record<string, { input: number; output: numbe
   "claude-haiku-5-5": { input: 0.1, output: 0.5 },
   "microsoft/microsoft-decision-1": { input: 0.042, output: 0 },
   "qwen/qwen3.7-flash": { input: 0.03, output: 0.13 },
-  "deepseek/deepseek-v4.1-flash": { input: 0.035, output: 0.14 },
   "claude-sonnet-5-5": { input: 2, output: 10 },
 };
 

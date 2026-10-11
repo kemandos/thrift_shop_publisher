@@ -76,6 +76,8 @@ export function openRouterDecider(opts: { apiKey: string; model?: string; fetch?
             "X-Title": opts.appName ?? "Thrift",
           },
           body: JSON.stringify(body),
+          // Decisions are fast (~0.1 s); a hanging call falls back to the chat model instead.
+          signal: AbortSignal.timeout(15_000),
         });
       } catch (e) {
         throw new LlmRequestError(`OpenRouter nicht erreichbar: ${e instanceof Error ? e.message : String(e)}`);

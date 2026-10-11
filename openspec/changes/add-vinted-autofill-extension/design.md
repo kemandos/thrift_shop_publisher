@@ -52,7 +52,7 @@ See `proposal.md`. Constraints:
   - The category is resolved first, because size options depend on it.
   - The AI therefore gets: photos, the top-level category list, and, after the category is chosen, the size, condition and colour options in a second, cheap text-only step.
 
-### V4 — AI calls (OpenRouter: Claude Haiku 5.5 + Jev Router)
+### V4 — AI calls (OpenRouter: Claude Haiku 5.5 or Qwen3.7 Flash + Microsoft Decision-1)
 
 1. **Analyse.** One call with up to 6 photos (≈1.6K tokens each) and the category options. It returns structured output (`response_format: json_schema`, strict) with a JSON schema generated from the Zod schemas in `packages/shared`:
    - type, category path, brand, size, colours, material, condition, defects, price range;
@@ -67,7 +67,7 @@ See `proposal.md`. Constraints:
 
 **Models (only these two):**
 - `anthropic/claude-haiku-5.5` for photos → listing (analyse, rewrite). $0.10 / $0.50 per 1M tokens.
-- `microsoft/microsoft-decision-1` for clicking and navigation (choosing picker options, AI element picking): a decision model (Qwen3.5-9B base) that scores a fixed option list instead of writing text, via OpenRouter's Decisions API (`POST /api/alpha/decisions`, question type `choice`, options as `criteria`, answer `choice` + `confidence`); $0.042 per 1M input tokens, output free. Answers below 60 % confidence are not acted on; on API errors the text model answers instead. Jev Router and Haiku remain selectable for navigation.
+- `microsoft/microsoft-decision-1` for clicking and navigation (choosing picker options, AI element picking): a decision model (Qwen3.5-9B base) that scores a fixed option list instead of writing text, via OpenRouter's Decisions API (`POST /api/alpha/decisions`, question type `choice`, options as `criteria`, answer `choice` + `confidence`); $0.042 per 1M input tokens, output free. Answers below 60 % confidence are not acted on; on API errors the text model answers instead. Haiku and Qwen3.7 Flash remain selectable for navigation. Text models: Claude Haiku 5.5 (default, fastest: 6.7 s, 0.15 US-cent per item in the owner's test) or Qwen3.7 Flash (10.8 s, 0.03 US-cent; via JSON mode, as no provider offers strict schemas). Thinking off by default for both; requests time out after 45 s and are retried once.
 
 **Provider-neutral layer:** `packages/shared` defines an `LlmClient` (`structured()` → raw JSON, stop reason, tokens, cost). `openRouterLlm` is used by the extension; the optional server can also use `anthropicLlm` when only `ANTHROPIC_API_KEY` is set. Validation, the one retry and the evidence rules sit above it, identical for both.
 

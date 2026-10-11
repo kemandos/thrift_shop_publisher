@@ -2,20 +2,19 @@ import { browser } from "wxt/browser";
 import { z } from "zod";
 import {
   DECISION_1_MODEL,
-  DEEPSEEK_FLASH_MODEL,
   DEFAULT_NAV_MODEL,
   QWEN_FLASH_MODEL,
   DEFAULT_OPENROUTER_MODEL,
   HAIKU_MODEL,
-  JEV_MODEL,
   Language,
   MAX_CUSTOM_INSTRUCTIONS,
   Tone,
   type ListingStyle,
 } from "@thrift/shared";
 
-const Model = z.enum([HAIKU_MODEL, QWEN_FLASH_MODEL, DEEPSEEK_FLASH_MODEL, JEV_MODEL]);
-const NavModel = z.enum([DECISION_1_MODEL, HAIKU_MODEL, JEV_MODEL]);
+// Owner's choice (2026-10-11): only Haiku and Qwen as chat models; Decision-1 for navigation.
+const Model = z.enum([HAIKU_MODEL, QWEN_FLASH_MODEL]);
+const NavModel = z.enum([DECISION_1_MODEL, HAIKU_MODEL, QWEN_FLASH_MODEL]);
 
 export const Settings = z.object({
   /** "openrouter": own OpenRouter key (default). "server": optional own server holds the key. */

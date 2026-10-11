@@ -168,7 +168,7 @@ export async function openPicker(
     return candidates(doc, forbidden, roots, (el) => !before.has(el) && el !== trigger && !trigger.contains(el));
   };
   await humanClick(trigger, forbidden, pace);
-  await pace.step();
+  // No fixed pause: the scan below returns as soon as the options are there.
   const opts = (await waitFor(() => {
     const fresh = scan();
     return fresh.length ? fresh : null;

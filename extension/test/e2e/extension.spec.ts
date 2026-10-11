@@ -161,10 +161,10 @@ test("options page: language/tone are lists, key is stored masked, popup opens t
   await expect(page.locator("input[name=model][value='anthropic/claude-haiku-5.5']")).toBeChecked();
   await expect(page.locator("input[name=navModel][value='microsoft/microsoft-decision-1']")).toBeChecked();
   await expect(page.locator("input[name=navModel]")).toHaveCount(3);
-  await expect(page.locator("input[name=model]")).toHaveCount(4); // Haiku, Qwen3.7 Flash, DeepSeek V4.1 Flash, Jev Router
+  await expect(page.locator("input[name=model]")).toHaveCount(2); // Haiku, Qwen3.7 Flash
   await expect(page.locator("#thinking")).not.toBeChecked();
   await page.locator("#thinking").check();
-  await page.locator("input[name=model][value='typesafe/jev-router']").check();
+  await page.locator("input[name=model][value='qwen/qwen3.7-flash']").check();
   await page.fill("#apiKey", "sk-or-test-key-3fA9");
   await page.locator("input[name=language][value=en]").check();
   await expect(page.locator("#customPrompt")).toHaveCount(0); // own instruction lives in the panel
@@ -179,7 +179,7 @@ test("options page: language/tone are lists, key is stored masked, popup opens t
   expect(stored).toMatchObject({
     mode: "openrouter",
     apiKey: "sk-or-test-key-3fA9",
-    model: "typesafe/jev-router",
+    model: "qwen/qwen3.7-flash",
     navModel: "microsoft/microsoft-decision-1",
     thinking: true,
     language: "en",

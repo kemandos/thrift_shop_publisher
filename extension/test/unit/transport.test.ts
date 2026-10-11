@@ -138,8 +138,8 @@ describe("thinking switch", () => {
   }) as unknown as typeof fetch;
   const style = { language: "de", tone: "freundlich", closingText: "" } as const;
 
-  it("is off by default and applies to every chat model (also Qwen, DeepSeek, Jev Router)", async () => {
-    for (const model of ["anthropic/claude-haiku-5.5", "qwen/qwen3.7-flash", "deepseek/deepseek-v4.1-flash", "typesafe/jev-router"]) {
+  it("is off by default and applies to every chat model (Haiku, Qwen)", async () => {
+    for (const model of ["anthropic/claude-haiku-5.5", "qwen/qwen3.7-flash"]) {
       await openRouterTransport("sk-or-x", { model, navModel: "microsoft/microsoft-decision-1" }, fn).call("rewrite", { attributes: attrs, style });
       expect(bodies.at(-1).reasoning).toEqual({ enabled: false });
       expect(bodies.at(-1).model).toBe(model);
@@ -154,7 +154,7 @@ describe("thinking switch", () => {
 });
 
 describe("openrouter transport", () => {
-  const models = { model: "anthropic/claude-haiku-5.5", navModel: "typesafe/jev-router" };
+  const models = { model: "anthropic/claude-haiku-5.5", navModel: "qwen/qwen3.7-flash" };
   it("requires a key", () => {
     expect(() => openRouterTransport("  ", models)).toThrowError(/OpenRouter-Key/);
   });
@@ -179,7 +179,7 @@ describe("openrouter transport", () => {
     expect(r.result.choice).toBe("M");
     expect(r.usage.costUsd).toBe(0.00001);
     expect(calls[0]!.url).toBe("https://openrouter.ai/api/v1/chat/completions");
-    expect(calls[0]!.body.model).toBe("typesafe/jev-router");
+    expect(calls[0]!.body.model).toBe("qwen/qwen3.7-flash");
     await t.call("rewrite", { attributes: attrs, style: { language: "de", tone: "freundlich", closingText: "" } }).catch(() => {});
     expect(calls[1]!.body.model).toBe("anthropic/claude-haiku-5.5");
   });

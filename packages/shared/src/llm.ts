@@ -51,20 +51,15 @@ export class LlmRequestError extends Error {
 
 export const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 export const HAIKU_MODEL = "anthropic/claude-haiku-5.5";
-/** OpenRouter's Jev Router: picks model and effort per request; cost is reported per call. */
-export const JEV_MODEL = "typesafe/jev-router";
 
 export const DECISION_1_MODEL = "microsoft/microsoft-decision-1";
 
 export const QWEN_FLASH_MODEL = "qwen/qwen3.7-flash";
-export const DEEPSEEK_FLASH_MODEL = "deepseek/deepseek-v4.1-flash";
 
 /** Photos → listing text (image input + structured outputs). */
 export const TEXT_MODELS = [
   { id: HAIKU_MODEL, label: "Claude Haiku 5.5", note: "$0.10 / $0.50 pro 1 Mio. Tokens" },
   { id: QWEN_FLASH_MODEL, label: "Qwen3.7 Flash", note: "Günstig · $0.03 / $0.13" },
-  { id: DEEPSEEK_FLASH_MODEL, label: "DeepSeek V4.1 Flash", note: "Günstig · ab $0.035 / $0.14" },
-  { id: JEV_MODEL, label: "Jev Router", note: "Wählt selbst, Preis je Anfrage" },
 ] as const;
 
 
@@ -72,7 +67,7 @@ export const TEXT_MODELS = [
 export const NAV_MODELS = [
   { id: DECISION_1_MODEL, label: "Microsoft Decision-1", note: "Entscheidungsmodell · $0.042 / gratis" },
   { id: HAIKU_MODEL, label: "Claude Haiku 5.5", note: "$0.10 / $0.50 pro 1 Mio. Tokens" },
-  { id: JEV_MODEL, label: "Jev Router", note: "Wählt selbst, Preis je Anfrage" },
+  { id: QWEN_FLASH_MODEL, label: "Qwen3.7 Flash", note: "Günstig · $0.03 / $0.13" },
 ] as const;
 
 /** @deprecated use TEXT_MODELS / NAV_MODELS */
@@ -106,6 +101,9 @@ export function strictJsonSchema(schema: z.ZodTypeAny): Record<string, unknown> 
   visit(js);
   return js;
 }
+
+/** A request that takes longer is abandoned and retried once. */
+export const REQUEST_TIMEOUT_MS = 45_000;
 
 /** Request strictness per model learned from "No endpoints found" (see openRouterLlm). */
 const requestLevel = new Map<string, number>();
@@ -146,6 +144,8 @@ export function openRouterLlm(opts: {
   appName?: string;
   /** Let the model think (reasoning). Off by default: faster and cheaper. */
   thinking?: boolean;
+  /** Per-request timeout; one retry after a timeout. */
+  timeoutMs?: number;
 }): LlmClient {
   const model = opts.model?.trim() || DEFAULT_OPENROUTER_MODEL;
   const f = opts.fetch ?? fetch;
@@ -182,22 +182,31 @@ export function openRouterLlm(opts: {
       provider: { require_parameters: true, sort: "price" },
       usage: { include: true },
     };
-    let res: Response;
-    try {
-      res = await f(OPENROUTER_URL, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${opts.apiKey}`,
-          "Content-Type": "application/json",
-          "X-Title": opts.appName ?? "Thrift",
-        },
-        body: JSON.stringify(body),
-      });
-    } catch (e) {
-      throw new LlmRequestError(`OpenRouter nicht erreichbar: ${e instanceof Error ? e.message : String(e)}`);
+    // A provider that never answers must not hang the fill: time out and try once more
+    // (OpenRouter usually routes the retry to another provider).
+    for (let attempt = 0; ; attempt++) {
+      try {
+        const res = await f(OPENROUTER_URL, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${opts.apiKey}`,
+            "Content-Type": "application/json",
+            "X-Title": opts.appName ?? "Thrift",
+          },
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(opts.timeoutMs ?? REQUEST_TIMEOUT_MS),
+        });
+        const json = (await res.json().catch(() => ({}))) as OpenRouterResponse;
+        return { res, json };
+      } catch (e) {
+        const timedOut = e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError");
+        if (timedOut && attempt === 0) continue;
+        throw new LlmRequestError(
+          timedOut ? "Die KI antwortet nicht (Zeitüberschreitung) – bitte erneut versuchen" : `OpenRouter nicht erreichbar: ${e instanceof Error ? e.message : String(e)}`,
+          timedOut ? 408 : undefined,
+        );
+      }
     }
-    const json = (await res.json().catch(() => ({}))) as OpenRouterResponse;
-    return { res, json };
   }
 
   return {
