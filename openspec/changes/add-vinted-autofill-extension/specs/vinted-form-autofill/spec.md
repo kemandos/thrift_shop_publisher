@@ -21,7 +21,7 @@ The extension SHALL offer a toolbar action "Artikel verkaufen" that opens Vinted
 - **THEN** www.vinted.de/items/new opens in the current tab
 
 ### Requirement: Offer filling once photos are added
-When at least one photo is in Vinted's photo area, the extension SHALL show a small "✨ Ausfüllen" control near the form, together with the current language and tone.
+When at least one photo is in Vinted's photo area, the extension SHALL show a small "✨ Ausfüllen" control near the form, together with the own instruction field (with 🎤 dictation). Language and tone come from the settings and are not shown in the panel.
 
 #### Scenario: Photos added
 - **WHEN** the user adds 4 photos via Vinted's "Fotos hinzufügen"

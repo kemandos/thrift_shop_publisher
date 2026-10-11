@@ -1,4 +1,4 @@
-import { LANGUAGE_LABELS, LANGUAGES, TONE_LABELS, TONES, type Language, type Tone } from "@thrift/shared";
+import type { Language } from "@thrift/shared";
 import type { Unresolved } from "../fill/fill";
 import { dictatedText, dictationError, speechRecognition, type Recognition } from "./dictation";
 import tailwindCss from "./tailwind.css?inline";
@@ -30,7 +30,6 @@ export interface PanelLayout {
 export interface PanelHandlers {
   onFill(): void;
   onRewrite(): void;
-  onStyleChange(language: Language, tone: Tone): void;
   /** The seller's own instruction for this item (wording only). */
   onInstructionsChange?(text: string): void;
   onAcceptNotice(): void;
@@ -43,7 +42,8 @@ export interface Panel {
   setEnabled(enabled: boolean, hint?: string): void;
   setBusy(busy: boolean): void;
   setStatus(msg: string, error?: boolean): void;
-  setStyle(language: Language, tone: Tone): void;
+  /** Listing language (from the settings): used for dictation. */
+  setLanguage(language: Language): void;
   setInstructions(text: string): void;
   setLayout(layout: Partial<PanelLayout>): void;
   showNotice(show: boolean): void;
@@ -101,9 +101,6 @@ const CARD =
 const ICON_BTN =
   "flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full border-0 bg-transparent text-lg leading-none " +
   "text-muted hover:bg-black/5 pointer-coarse:size-11";
-const SELECT =
-  "h-9 min-w-0 flex-1 rounded-xl border border-line bg-white px-2 text-sm text-ink outline-none focus:border-spruce " +
-  "pointer-coarse:h-11 pointer-coarse:text-base";
 const COARSE_BTN = "pointer-coarse:h-11 pointer-coarse:text-base";
 
 export function createPanel(doc: Document, h: PanelHandlers): Panel {
@@ -132,19 +129,15 @@ export function createPanel(doc: Document, h: PanelHandlers): Panel {
   head.append(brand, fillCompact, dockBtn, collapseBtn);
 
   const body = el("div", { class: "group-data-[collapsed]:hidden" });
-  const styleRow = el("div", { class: "mt-2 flex items-center gap-2" });
-  const lang = el("select", { class: SELECT, "aria-label": "Sprache" });
-  for (const l of LANGUAGES) lang.append(el("option", { value: l }, LANGUAGE_LABELS[l]));
-  const tone = el("select", { class: SELECT, "aria-label": "Ton" });
-  for (const t of TONES) tone.append(el("option", { value: t }, TONE_LABELS[t]));
-  styleRow.append(lang, tone);
+  // Language and tone live in the settings; the panel only carries this item's own instruction.
+  let language: Language = "de";
 
   // Own instruction, right where "Ausfüllen" is clicked: sent with this fill (in addition to the tone).
   const instr = el("textarea", {
     class: "field block min-h-[40px] min-w-0 flex-1 resize-none text-[13px] leading-snug pointer-coarse:text-base",
     rows: "1",
     maxlength: "400",
-    placeholder: "Eigene Anweisung (optional), z. B. „Länge betonen, kaum getragen“",
+    placeholder: "Eigene Anweisung (optional), z. B. „kurz und locker, kaum getragen“",
     "aria-label": "Eigene Anweisung für Titel und Beschreibung",
     "data-testid": "thrift-instructions",
   });
@@ -171,7 +164,7 @@ export function createPanel(doc: Document, h: PanelHandlers): Panel {
     if (!Speech) return;
     if (rec) return stopDictation();
     const r = new Speech();
-    r.lang = lang.value === "en" ? "en-US" : "de-DE";
+    r.lang = language === "en" ? "en-US" : "de-DE";
     r.continuous = true;
     r.interimResults = true;
     const before = instr.value;
@@ -238,7 +231,7 @@ export function createPanel(doc: Document, h: PanelHandlers): Panel {
     setTimeout(() => (logBtn.textContent = "Protokoll kopieren"), 2000);
   });
 
-  body.append(styleRow, instrRow, actions, notice, status, list, foot);
+  body.append(instrRow, actions, notice, status, list, foot);
   card.append(head, body);
   root.append(card);
   doc.body.append(host);
@@ -282,9 +275,6 @@ export function createPanel(doc: Document, h: PanelHandlers): Panel {
   });
   rewrite.addEventListener("click", () => h.onRewrite());
   ok.addEventListener("click", () => h.onAcceptNotice());
-  const styleChanged = () => h.onStyleChange(lang.value as Language, tone.value as Tone);
-  lang.addEventListener("change", styleChanged);
-  tone.addEventListener("change", styleChanged);
   collapseBtn.addEventListener("click", () => changeLayout({ collapsed: !layout.collapsed }));
   dockBtn.addEventListener("click", () => changeLayout({ dock: layout.dock === "bottom" ? "top" : "bottom" }));
 
@@ -308,9 +298,8 @@ export function createPanel(doc: Document, h: PanelHandlers): Panel {
       status.classList.toggle("text-muted", !error);
       if (error) expand();
     },
-    setStyle(l, t) {
-      lang.value = l;
-      tone.value = t;
+    setLanguage(l) {
+      language = l;
     },
     setInstructions(text) {
       instr.value = text;

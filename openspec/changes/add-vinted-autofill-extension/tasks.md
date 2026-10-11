@@ -60,6 +60,7 @@
 - [x] 4.24 Owner's model comparison: keep only Haiku and Qwen3.7 Flash (DeepSeek and Jev Router removed); faster pacing and waits, total time in the log; 45 s request timeout with one retry (DeepSeek hung); brand reopen after 0.8 s
 - [x] 4.25 Photo size for the AI as a setting (1280 px default, 1024 px faster/cheaper); photo count and size in the log; verify unit and e2e tests
 - [x] 4.26 Household line (Nichtraucher-/tierfreier Haushalt, on by default) appended to every description; tape-measure measurements read by the analysis and appended as a "Maße" line; 🎤 dictation for the own instruction; verify unit and e2e tests
+- [x] 4.27 Language and tone only in the settings (panel: own instruction with 🎤 and "Ausfüllen"); log shows language and tone; verify e2e (panel has no selects, 16 px instruction field on touch)
 
 ## 5. Settings and Chrome release (spec: extension-settings)
 

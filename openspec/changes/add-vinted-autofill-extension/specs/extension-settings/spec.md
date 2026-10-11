@@ -59,7 +59,7 @@ The settings SHALL let the user choose the default language (Deutsch, English) a
 
 #### Scenario: Default English
 - **WHEN** the default language is set to English
-- **THEN** new fills produce English text unless changed in the fill control
+- **THEN** new fills produce English text (the panel has no language or tone switch; wishes for one item go into the own instruction)
 
 ### Requirement: One-time notice
 Before the first fill, the extension SHALL explain that it fills Vinted's form in the user's own browser, that the user always clicks "Hochladen" themselves, and that Vinted's terms restrict external tools; filling SHALL stay disabled until the user confirms.

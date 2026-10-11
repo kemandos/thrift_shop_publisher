@@ -109,6 +109,8 @@ test("first fill shows the notice; after 'Verstanden' it fills everything via th
   // Own instruction, right next to "Ausfüllen", sent with this fill.
   // Dictation button next to the instruction (Chrome has speech recognition).
   await expect(page.getByTestId("thrift-dictate")).toBeVisible();
+  // Language and tone live only in the settings now.
+  await expect(page.locator("[data-thrift-ui] select")).toHaveCount(0);
   await page.getByTestId("thrift-instructions").fill("Erwähne: Nichtraucherhaushalt");
   await page.getByTestId("thrift-fill").click();
   await expect(page.getByText("Fertig – bitte prüfen und selbst hochladen")).toBeVisible({ timeout: 60_000 });

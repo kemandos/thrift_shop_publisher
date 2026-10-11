@@ -32,8 +32,6 @@ export default defineContentScript({
     const map: FormMap = await bg.get("getFormMap");
     void bg.get("heartbeat").catch(() => {});
 
-    let language = settings.language;
-    let tone = settings.tone;
     let instructions = settings.customPrompt;
     let saveInstr: ReturnType<typeof setTimeout> | undefined;
     let lastAttributes: Attributes | null = null;
@@ -53,6 +51,7 @@ export default defineContentScript({
         `Thrift ${browser.runtime.getManifest().version} · Formular-Map ${map.version}${map.version === DEFAULT_FORM_MAP.version ? "" : " (Server)"}`,
         `${location.pathname} · Fenster ${innerWidth}×${innerHeight} · ${navigator.userAgent.match(/(Chrome|Safari|Firefox)\/[\d.]+/)?.[0] ?? ""}`,
         `Modelle: ${settings.model} / ${settings.navModel} · Denken ${settings.thinking ? "an" : "aus"} · ${new Date().toISOString()}`,
+        `Sprache ${settings.language} · Ton ${settings.tone}`,
       ].join("\n");
 
     const refreshCost = async () => {
@@ -72,6 +71,7 @@ export default defineContentScript({
       busy = true;
       // Settings may have changed in the options page since this page loaded (model, thinking, key).
       settings = await bg.get("getSettings").catch(() => settings);
+      panel.setLanguage(settings.language);
       log = [logHeader()];
       const runStarted = Date.now();
       panel.setBusy(true);
@@ -101,7 +101,7 @@ export default defineContentScript({
           const photos = await collectPhotos(document, map, settings.photoMaxEdge);
           if (!photos.length) throw new ClientError("Keine Fotos gefunden – erst Fotos hinzufügen.");
           log.push(`Fotos: ${photos.length} × max ${settings.photoMaxEdge} px`);
-          const report = await fillForm(ctx(), photos, styleFrom(settings, { language, tone, customPrompt: instructions }));
+          const report = await fillForm(ctx(), photos, styleFrom(settings, { customPrompt: instructions }));
           lastAttributes = report.attributes;
           log.push(`Ergebnis: gefüllt ${report.filled.join(", ") || "–"}; offen ${report.unresolved.map((u) => u.key).join(", ") || "–"}`);
           panel.showResult(report.unresolved, true);
@@ -112,7 +112,7 @@ export default defineContentScript({
         const attrs = lastAttributes;
         void run(async () => {
           panel.setStatus("Schreibe Text neu …");
-          await rewriteText(ctx(), attrs, styleFrom(settings, { language, tone, customPrompt: instructions }));
+          await rewriteText(ctx(), attrs, styleFrom(settings, { customPrompt: instructions }));
           panel.setStatus("Text aktualisiert – bitte prüfen");
         });
       },
@@ -122,12 +122,6 @@ export default defineContentScript({
         clearTimeout(saveInstr);
         saveInstr = setTimeout(() => void saveSettings({ customPrompt: text.trim() }).catch(() => {}), 600);
         if (lastAttributes) panel.setStatus("Tippe „Neu schreiben“, um die Anweisung anzuwenden.");
-      },
-      onStyleChange: (l, t) => {
-        const changed = l !== language || t !== tone;
-        language = l;
-        tone = t;
-        if (changed && lastAttributes) panel.setStatus("Tippe „Neu schreiben“, um den Text anzupassen.");
       },
       onLayoutChange: (l) => {
         settings = { ...settings, panelDock: l.dock, panelCollapsed: l.collapsed };
@@ -141,7 +135,7 @@ export default defineContentScript({
         });
       },
     });
-    panel.setStyle(language, tone);
+    panel.setLanguage(settings.language);
     panel.setInstructions(instructions);
     panel.setLayout({ dock: settings.panelDock, collapsed: settings.panelCollapsed });
 

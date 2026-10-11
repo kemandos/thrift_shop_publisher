@@ -74,10 +74,10 @@ for (const f of FORMATS) {
     if (f.touch) {
       expect(fill.height).toBeGreaterThanOrEqual(44);
       expect((await box(page, "thrift-collapse")).height).toBeGreaterThanOrEqual(44);
-      // 16 px text in selects: iOS does not zoom when they get focus.
+      // 16 px text in the instruction field: iOS does not zoom when it gets focus.
       const fs = await page.evaluate(() => {
         const host = document.querySelector("[data-thrift-ui]")!;
-        return getComputedStyle(host.shadowRoot!.querySelector("select")!).fontSize;
+        return getComputedStyle(host.shadowRoot!.querySelector("textarea")!).fontSize;
       });
       expect(fs).toBe("16px");
     }
