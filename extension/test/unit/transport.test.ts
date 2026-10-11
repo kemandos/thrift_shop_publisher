@@ -124,6 +124,35 @@ describe("openrouter transport with Microsoft Decision-1 for navigation", () => 
   });
 });
 
+describe("thinking switch", () => {
+  const attrs = {
+    itemType: "Shorts", categoryPath: [], brand: null, brandEvidence: "none", size: null, sizeEvidence: "none",
+    colors: [], material: null, condition: "gut", defects: [], features: [], priceMinEur: 5, priceMaxEur: 9,
+  } as never;
+  const bodies: any[] = [];
+  const fn = (async (_url: string, init?: RequestInit) => {
+    bodies.push(JSON.parse(init!.body as string));
+    return new Response(
+      JSON.stringify({ choices: [{ message: { content: JSON.stringify({ title: "Shorts", description: "Beige Shorts.", hashtags: [] }) }, finish_reason: "stop" }], usage: { prompt_tokens: 1, completion_tokens: 1 } }),
+    );
+  }) as unknown as typeof fetch;
+  const style = { language: "de", tone: "freundlich", closingText: "" } as const;
+
+  it("is off by default and applies to every chat model (also Qwen, DeepSeek, Jev Router)", async () => {
+    for (const model of ["anthropic/claude-haiku-5.5", "qwen/qwen3.7-flash", "deepseek/deepseek-v4.1-flash", "typesafe/jev-router"]) {
+      await openRouterTransport("sk-or-x", { model, navModel: "microsoft/microsoft-decision-1" }, fn).call("rewrite", { attributes: attrs, style });
+      expect(bodies.at(-1).reasoning).toEqual({ enabled: false });
+      expect(bodies.at(-1).model).toBe(model);
+      expect(bodies.at(-1).provider).toEqual({ require_parameters: true, sort: "price" });
+    }
+    await openRouterTransport("sk-or-x", { model: "qwen/qwen3.7-flash", navModel: "anthropic/claude-haiku-5.5", thinking: true }, fn).call("rewrite", {
+      attributes: attrs,
+      style,
+    });
+    expect(bodies.at(-1).reasoning).toEqual({ enabled: true });
+  });
+});
+
 describe("openrouter transport", () => {
   const models = { model: "anthropic/claude-haiku-5.5", navModel: "typesafe/jev-router" };
   it("requires a key", () => {

@@ -54,11 +54,17 @@ export const JEV_MODEL = "typesafe/jev-router";
 
 export const DECISION_1_MODEL = "microsoft/microsoft-decision-1";
 
+export const QWEN_FLASH_MODEL = "qwen/qwen3.7-flash";
+export const DEEPSEEK_FLASH_MODEL = "deepseek/deepseek-v4.1-flash";
+
 /** Photos → listing text (image input + structured outputs). */
 export const TEXT_MODELS = [
   { id: HAIKU_MODEL, label: "Claude Haiku 5.5", note: "$0.10 / $0.50 pro 1 Mio. Tokens" },
+  { id: QWEN_FLASH_MODEL, label: "Qwen3.7 Flash", note: "Günstig · $0.03 / $0.13" },
+  { id: DEEPSEEK_FLASH_MODEL, label: "DeepSeek V4.1 Flash", note: "Günstig · ab $0.035 / $0.14" },
   { id: JEV_MODEL, label: "Jev Router", note: "Wählt selbst, Preis je Anfrage" },
 ] as const;
+
 
 /** Clicking/navigation: choosing picker options and finding form elements. */
 export const NAV_MODELS = [
@@ -111,6 +117,8 @@ export function openRouterLlm(opts: {
   fetch?: typeof fetch;
   /** Shown in the OpenRouter dashboard. */
   appName?: string;
+  /** Let the model think (reasoning). Off by default: faster and cheaper. */
+  thinking?: boolean;
 }): LlmClient {
   const model = opts.model?.trim() || DEFAULT_OPENROUTER_MODEL;
   const f = opts.fetch ?? fetch;
@@ -133,9 +141,11 @@ export function openRouterLlm(opts: {
           type: "json_schema",
           json_schema: { name: call.name, strict: true, schema: strictJsonSchema(call.schema) },
         },
-        // No `reasoning` here: together with require_parameters it would exclude non-reasoning models.
-        // Only route to providers that honour response_format.
-        provider: { require_parameters: true },
+        // Thinking is one setting for all models (default off): listing data rarely needs it, and
+        // Qwen/DeepSeek think by default (slow, billed as output).
+        reasoning: { enabled: opts.thinking === true },
+        // Only providers that honour response_format (and the reasoning switch); cheapest first.
+        provider: { require_parameters: true, sort: "price" },
         usage: { include: true },
       };
       let res: Response;

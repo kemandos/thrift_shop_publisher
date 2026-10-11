@@ -9,6 +9,7 @@ describe("settings", () => {
       mode: "openrouter",
       model: "anthropic/claude-haiku-5.5",
       navModel: "microsoft/microsoft-decision-1",
+      thinking: false,
       language: "de",
       tone: "freundlich",
       noticeAccepted: false,
@@ -20,7 +21,9 @@ describe("settings", () => {
       model: "typesafe/jev-router",
       navModel: "anthropic/claude-haiku-5.5",
     });
-    expect(mergeSettings({ model: "qwen/qwen3.7-flash" as never }, {}).model).toBe("anthropic/claude-haiku-5.5");
+    expect(mergeSettings({ model: "qwen/qwen3.7-flash" }, {}).model).toBe("qwen/qwen3.7-flash");
+    expect(mergeSettings({ model: "deepseek/deepseek-v4.1-flash" }, {}).model).toBe("deepseek/deepseek-v4.1-flash");
+    expect(mergeSettings({ model: "openai/gpt-5-nano" as never }, {}).model).toBe("anthropic/claude-haiku-5.5");
     expect(mergeSettings({ mode: "direct" as never, apiKey: "k" }, {})).toMatchObject({ mode: "openrouter", apiKey: "k" });
   });
 

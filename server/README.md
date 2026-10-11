@@ -39,6 +39,7 @@ CORS only allows `chrome-extension://…` and `safari-web-extension://…` origi
 | `THRIFT_TOKENS` | yes | | Comma-separated, one per device, each at least 24 chars. The position in the list is the device id for usage counts, so add new tokens at the end. |
 | `AUTOFILL_ENABLED` | no | `true` | Kill switch. With `false`, the extensions stop filling. |
 | `MODEL` | no | `anthropic/claude-haiku-5.5` | Photos & text. |
+| `THINKING` | no | `false` | Reasoning for all chat models. |
 | `NAV_MODEL` | no | `microsoft/microsoft-decision-1` | Choosing options and finding fields. A decision model uses OpenRouter's Decisions API (alpha); if it fails, `MODEL` answers instead. |
 | `FORM_MAP_PATH` | no | built-in map | A JSON file validated against the shared `FormMap` schema. Put it in `data/` and use `/app/data/form-map.json`. |
 | `PORT` | no | `8787` | |

@@ -9,6 +9,8 @@ export interface ServerEnvConfig {
   tokens: string[];
   autofillEnabled: boolean;
   model: string;
+  /** Let the text model think (reasoning); default off. */
+  thinking: boolean;
   /** Model for option choosing / element finding (OpenRouter: Jev Router; Anthropic: same as model). */
   navModel: string;
   formMap: FormMap;
@@ -69,6 +71,7 @@ export function loadConfig(env: NodeJS.ProcessEnv): ServerEnvConfig {
     tokens,
     autofillEnabled: parseBool("AUTOFILL_ENABLED", env.AUTOFILL_ENABLED, true),
     model,
+    thinking: parseBool("THINKING", env.THINKING, false),
     navModel: env.NAV_MODEL?.trim() || (provider === "openrouter" ? DEFAULT_NAV_MODEL : model),
     formMap,
     port,

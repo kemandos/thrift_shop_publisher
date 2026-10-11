@@ -12,7 +12,7 @@ function start() {
   const llmFor = (model: string) =>
     anthropic
       ? anthropicLlm(anthropic, model)
-      : openRouterLlm({ apiKey: config.apiKey, model, appName: "Thrift (server)" });
+      : openRouterLlm({ apiKey: config.apiKey, model, appName: "Thrift (server)", thinking: config.thinking });
   // Navigation by a decision model (Microsoft Decision-1) when configured; chat model as fallback.
   const decision = !anthropic && isDecisionModel(config.navModel);
   const app = createApp({

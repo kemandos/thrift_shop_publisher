@@ -62,6 +62,7 @@ function render(s: Settings) {
   $<HTMLInputElement>("apiKey").value = "";
   $("apiKeyMasked").textContent = s.apiKey ? `Gespeichert: ${maskSecret(s.apiKey)}` : "";
   renderModels("models", "model", s.model, TEXT_MODELS);
+  $<HTMLInputElement>("thinking").checked = s.thinking;
   renderModels("navModels", "navModel", s.navModel, NAV_MODELS);
   $<HTMLInputElement>("serverUrl").value = s.serverUrl;
   $<HTMLInputElement>("serverToken").value = "";
@@ -82,6 +83,7 @@ async function save(): Promise<Settings> {
     apiKey: key || current.apiKey,
     model: (checked("model") || current.model) as ModelId,
     navModel: (checked("navModel") || current.navModel) as NavModelId,
+    thinking: $<HTMLInputElement>("thinking").checked,
     serverUrl: $<HTMLInputElement>("serverUrl").value.trim(),
     serverToken: token || current.serverToken,
     language: (checked("language") || "de") as Language,

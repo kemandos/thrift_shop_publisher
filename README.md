@@ -10,10 +10,10 @@ Models come from **OpenRouter**, with one key for both:
 
 | Job | Default model | Alternative |
 |---|---|---|
-| Photos & text | Claude Haiku 5.5 (`anthropic/claude-haiku-5.5`) | Jev Router |
+| Photos & text | Claude Haiku 5.5 (`anthropic/claude-haiku-5.5`) | Qwen3.7 Flash, DeepSeek V4.1 Flash (cheaper), Jev Router |
 | Clicking & navigation (picking options, finding fields) | Microsoft Decision-1 (`microsoft/microsoft-decision-1`, decision model) | Claude Haiku 5.5, Jev Router |
 
-No other models are offered. Decision-1 does not write text: it scores the offered options and Thrift only acts on confident answers (≥ 60 %); if OpenRouter's Decisions API (alpha) fails, Haiku answers instead. Cost is about 0.2 ct per item for the photo analysis with Haiku. The popup shows the exact cost that OpenRouter reports.
+No other models are offered. Thinking (reasoning) is off for all models by default – one switch in the settings turns it on. Decision-1 does not write text: it scores the offered options and Thrift only acts on confident answers (≥ 60 %); if OpenRouter's Decisions API (alpha) fails, Haiku answers instead. Cost is about 0.2 ct per item for the photo analysis with Haiku. The popup shows the exact cost that OpenRouter reports.
 
 ## Repository layout
 

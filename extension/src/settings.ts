@@ -2,7 +2,9 @@ import { browser } from "wxt/browser";
 import { z } from "zod";
 import {
   DECISION_1_MODEL,
+  DEEPSEEK_FLASH_MODEL,
   DEFAULT_NAV_MODEL,
+  QWEN_FLASH_MODEL,
   DEFAULT_OPENROUTER_MODEL,
   HAIKU_MODEL,
   JEV_MODEL,
@@ -12,7 +14,7 @@ import {
   type ListingStyle,
 } from "@thrift/shared";
 
-const Model = z.enum([HAIKU_MODEL, JEV_MODEL]);
+const Model = z.enum([HAIKU_MODEL, QWEN_FLASH_MODEL, DEEPSEEK_FLASH_MODEL, JEV_MODEL]);
 const NavModel = z.enum([DECISION_1_MODEL, HAIKU_MODEL, JEV_MODEL]);
 
 export const Settings = z.object({
@@ -24,6 +26,8 @@ export const Settings = z.object({
   model: Model.catch(DEFAULT_OPENROUTER_MODEL),
   /** Model for clicking/navigation: picker options and element finding (Jev Router by default). */
   navModel: NavModel.catch(DEFAULT_NAV_MODEL),
+  /** Let the text model think (reasoning): more careful, but slower and pricier. Default off. */
+  thinking: z.boolean().catch(false),
   serverUrl: z.string().default(""),
   serverToken: z.string().default(""),
   language: Language.default("de"),
@@ -47,6 +51,7 @@ const NATIVE_KEYS = [
   "apiKey",
   "model",
   "navModel",
+  "thinking",
   "serverUrl",
   "serverToken",
   "language",

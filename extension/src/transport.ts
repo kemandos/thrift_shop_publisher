@@ -44,15 +44,15 @@ export const OPENROUTER_CREDITS_URL = "https://openrouter.ai/api/v1/credits";
 /** Default mode: the user's own OpenRouter key, called from the background worker. */
 export function openRouterTransport(
   apiKey: string,
-  models: { model: string; navModel: string },
+  models: { model: string; navModel: string; thinking?: boolean },
   fetchFn: typeof fetch = (...a) => fetch(...a),
 ): Transport {
   const key = apiKey.trim();
   if (!key) throw new TransportError("Kein OpenRouter-Key gespeichert", "no_key");
-  const text = openRouterLlm({ apiKey: key, model: models.model, fetch: fetchFn });
+  const text = openRouterLlm({ apiKey: key, model: models.model, fetch: fetchFn, thinking: models.thinking });
   // Navigation: a decision model (Microsoft Decision-1, Decisions API) or a chat model.
   const decider = isDecisionModel(models.navModel) ? openRouterDecider({ apiKey: key, model: models.navModel, fetch: fetchFn }) : null;
-  const nav = decider ? text : openRouterLlm({ apiKey: key, model: models.navModel, fetch: fetchFn });
+  const nav = decider ? text : openRouterLlm({ apiKey: key, model: models.navModel, fetch: fetchFn, thinking: models.thinking });
 
   /** Decision model first; if the (alpha) Decisions API fails, the text model answers instead. */
   async function decide<T>(byDecision: () => Promise<AiResponse<T>>, byChat: () => Promise<AiResponse<T>>): Promise<AiResponse<T>> {
