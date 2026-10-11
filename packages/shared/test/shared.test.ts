@@ -37,6 +37,7 @@ const attrs: Attributes = {
   material: "70 % Wolle",
   condition: "sehr_gut",
   defects: [],
+  features: [],
   priceMinEur: 15,
   priceMaxEur: 22,
 };

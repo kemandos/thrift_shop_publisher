@@ -43,6 +43,7 @@ const ModelAttributes = z.object({
   defects: z.array(z.string()),
   priceMinEur: z.number(),
   priceMaxEur: z.number(),
+  features: z.array(z.string()),
 });
 const ModelText = z.object({ title: z.string(), description: z.string(), hashtags: z.array(z.string()) });
 const ModelAnalyze = z.object({ attributes: ModelAttributes, text: ModelText });
@@ -103,6 +104,7 @@ function normalizeAttributes(raw: z.infer<typeof ModelAttributes>): Attributes {
     size: raw.sizeEvidence === "label" ? raw.size : null,
     brand: raw.brandEvidence === "none" ? null : raw.brand,
     colors: raw.colors.slice(0, 3),
+    features: raw.features.map((f) => f.trim()).filter(Boolean).slice(0, 12),
     priceMinEur: min,
     priceMaxEur: max,
   };

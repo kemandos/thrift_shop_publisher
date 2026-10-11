@@ -72,6 +72,12 @@ export const Attributes = z.object({
   material: z.string().nullable().describe("Material only if a care label shows it, else null"),
   condition: Condition,
   defects: z.array(z.string()).describe("Visible defects in the listing language, empty if none"),
+  /**
+   * Visible style details from the photos (German, short): waist height, length, fit, neckline,
+   * sleeve length, closure, pattern … e.g. ["hohe Taille", "Mini-Länge", "Reißverschluss"]. Lets the
+   * navigation model (which sees no photos) choose leaves such as "Shorts mit hoher Taille".
+   */
+  features: z.array(z.string()).max(12).default([]),
   priceMinEur: z.number().int().min(1),
   priceMaxEur: z.number().int().min(1),
 });

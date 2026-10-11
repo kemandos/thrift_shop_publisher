@@ -41,6 +41,7 @@ export const STUB_ATTRIBUTES = {
   material: null,
   condition: "sehr_gut",
   defects: [],
+  features: [],
   priceMinEur: 15,
   priceMaxEur: 22,
 };

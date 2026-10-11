@@ -524,7 +524,7 @@ async function fillCategory(ctx: FillContext, attrs: Attributes, trigger: Elemen
       else {
         // Similar names (no AI): "Shorts" for "Shorts & Bermudas", "Pullover & Sweater" for "Strickpullover".
         const scored = options
-          .map((o) => ({ o, score: kindScore(o.label, [...want.slice(cursor), attrs.itemType]) }))
+          .map((o) => ({ o, score: kindScore(o.label, [...want.slice(cursor), attrs.itemType, ...attrs.features]) }))
           .filter((x) => x.score > 0)
           .sort((x, y) => y.score - x.score);
         if (scored.length && (scored.length === 1 || scored[0]!.score > scored[1]!.score)) pick = scored[0]!.o;
@@ -636,7 +636,7 @@ async function fillExtraFields(ctx: FillContext, attrs: Attributes): Promise<voi
     await withPicker(ctx, "extra" as FieldKey, trigger, async (session) => {
       if (!session.options.length) return;
       // Directly when the item type says it ("Minirock" → "Mini"); the AI only otherwise.
-      const itemWords = norm([attrs.itemType, ...attrs.categoryPath].join(" "));
+      const itemWords = norm([attrs.itemType, ...attrs.categoryPath, ...attrs.features].join(" "));
       const direct = session.options.filter((o) => norm(o.label).length >= 3 && itemWords.includes(norm(o.label)));
       let pick: Option | null = direct.length === 1 ? direct[0]! : null;
       if (!pick) try {

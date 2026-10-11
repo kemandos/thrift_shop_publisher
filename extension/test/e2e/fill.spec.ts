@@ -148,6 +148,15 @@ test.describe("vinted.de structure (div rows, search, suggestions)", () => {
     expect(state.size).toBe("M"); // fields after the category still filled
   });
 
+  test("visible features from the photos pick the leaf without any AI call (hohe Taille → Shorts mit hoher Taille)", async ({ page }) => {
+    await open(page, "vinted");
+    await addPhotos(page, 1);
+    const shorts = { ...STUB_ATTRIBUTES, itemType: "Shorts", categoryPath: ["Damen", "Kleidung", "Shorts"], features: ["hohe Taille", "Reißverschluss"] };
+    const { state, calls } = await runFill(page, "label", shorts);
+    expect(state.category).toEqual(["Damen", "Kleidung", "Shorts", "Shorts mit hoher Taille"]);
+    expect(calls.filter((c) => c === "choose:category")).toEqual([]);
+  });
+
   test("a Vinted suggestion that matches the analysis is taken", async ({ page }) => {
     await routeVinted(page);
     await page.goto("https://www.vinted.de/items/new?variant=vinted&suggest=shorts");

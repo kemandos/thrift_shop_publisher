@@ -50,7 +50,8 @@ describe("server transport", () => {
 describe("openrouter transport with Microsoft Decision-1 for navigation", () => {
   const attrs = {
     itemType: "Shorts", categoryPath: ["Damen", "Kleidung", "Shorts"], brand: null, brandEvidence: "none", size: "M",
-    sizeEvidence: "label", colors: ["Beige"], material: "Baumwolle", condition: "gut", defects: [], priceMinEur: 5, priceMaxEur: 9,
+    sizeEvidence: "label", colors: ["Beige"], material: "Baumwolle", condition: "gut", defects: [], features: ["hohe Taille"],
+    priceMinEur: 5, priceMaxEur: 9,
   } as never;
   const models = { model: "anthropic/claude-haiku-5.5", navModel: "microsoft/microsoft-decision-1" };
 
@@ -81,7 +82,8 @@ describe("openrouter transport with Microsoft Decision-1 for navigation", () => 
     expect(calls[0]!.body.questions.pick.type).toBe("choice");
     expect(calls[0]!.body.questions.pick.criteria).toEqual({ o1: "Röcke", o2: "Shorts" }); // tree level: no "none"
     expect(calls[0]!.body.state.item.type).toBe("Shorts");
-    expect(calls[0]!.body.state.listing).toBe("Beige Shorts mit hoher Taille"); // details only the text has
+    expect(calls[0]!.body.state.listing).toBe("Beige Shorts mit hoher Taille");
+    expect(calls[0]!.body.state.item.features).toEqual(["hohe Taille"]); // what Haiku saw on the photos
   });
 
   it("acts only on confident answers; 'none' and low confidence leave the field open", async () => {

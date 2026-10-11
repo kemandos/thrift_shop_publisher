@@ -65,3 +65,10 @@ The analysis SHALL read size, brand and composition labels in any language, copy
 #### Scenario: Spanish care label
 - **WHEN** the care label says "100% ALGODÓN / ALGODÃO" and "EL CORTE INGLÉS S.A."
 - **THEN** material is "Baumwolle", the description mentions "100 % Baumwolle", and the brand comes from the brand label
+
+### Requirement: Visible features for the navigation model
+The analysis SHALL list visible style details from the photos as short German features (waist height, length, fit, neckline, sleeves, closure, pattern, special parts). They SHALL be used for direct matching of category leaves and extra fields and passed to the navigation model, which sees no photos.
+
+#### Scenario: High-waisted shorts
+- **WHEN** the photos show high-waisted shorts and the analysis lists the feature "hohe Taille"
+- **THEN** the leaf "Shorts mit hoher Taille" is selected without an extra AI call

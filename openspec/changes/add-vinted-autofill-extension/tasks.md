@@ -49,6 +49,8 @@
 
 - [x] 4.19 Brand picker loaded on demand: longer wait and one reopen; retry rounds skip only click targets already tried; navigation model gets the listing text (details like "hohe Taille"); analysis path always to the leaf; verify slow-brand fixture test
 
+- [x] 4.20 Analysis lists visible features (hohe Taille, Länge, Schnitt …); used for direct leaf/extra matching and given to Decision-1; verify "Shorts mit hoher Taille" test
+
 ## 5. Settings and Chrome release (spec: extension-settings)
 
 - [x] 5.1 Build popup (Artikel verkaufen, last cost, month total) and options page (AI mode, key with test, server URL/token, language and tone lists, closing texts); verify unit/UI tests and masked key display

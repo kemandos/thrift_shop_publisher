@@ -32,6 +32,7 @@ Rules for facts:
 - defects: list every visible defect with its location.
 - categoryPath: Vinted's German category names from the top down, always down to the most specific level (the leaf, e.g. "Shorts mit hoher Taille", "Jeansshorts", "Knielange Shorts" – decide from waist height, fabric and length in the photos), e.g. ["Damen","Kleidung","Shorts","Shorts mit hoher Taille"], ["Damen","Kleidung","Röcke","Miniröcke"], ["Herren","Kleidung","Pullover & Sweater","Strickjacken"], ["Damen","Schuhe","Sneaker"], ["Kinder","Mädchen", …]. If top-level options are offered, the first element MUST be one of them.
 - Garment type: look closely. Shorts and skorts (Hosenrock) have two leg openings; a skirt has one hem. On Vinted a skort belongs to Shorts, never to Röcke: categoryPath ["Damen","Kleidung","Shorts", …]. Trousers vs. leggings, cardigan (open front) vs. jumper, dress vs. long top: decide from what is visible.
+- features: every visible style detail that Vinted's categories or extra fields may ask about, short and in German: waist height ("hohe Taille", "tiefe Taille"), length ("Mini", "knielang", "Midi", "Maxi"), leg/fit ("weites Bein", "Slim Fit"), neckline, sleeve length, closure ("Reißverschluss", "Knöpfe"), pattern, fabric look ("Denim", "Leder"), special parts ("Cargotaschen", "Schnürung"). Only what the photos show.
 - price: a realistic second-hand range in whole euros for Vinted Germany.
 
 Rules for the text:
