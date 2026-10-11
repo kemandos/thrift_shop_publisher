@@ -52,7 +52,7 @@ export default defineContentScript({
       [
         `Thrift ${browser.runtime.getManifest().version} · Formular-Map ${map.version}${map.version === DEFAULT_FORM_MAP.version ? "" : " (Server)"}`,
         `${location.pathname} · Fenster ${innerWidth}×${innerHeight} · ${navigator.userAgent.match(/(Chrome|Safari|Firefox)\/[\d.]+/)?.[0] ?? ""}`,
-        `Modelle: ${settings.model} / ${settings.navModel} · ${new Date().toISOString()}`,
+        `Modelle: ${settings.model} / ${settings.navModel} · Denken ${settings.thinking ? "an" : "aus"} · ${new Date().toISOString()}`,
       ].join("\n");
 
     const refreshCost = async () => {
@@ -70,6 +70,8 @@ export default defineContentScript({
     const run = async (fn: () => Promise<void>) => {
       if (busy) return;
       busy = true;
+      // Settings may have changed in the options page since this page loaded (model, thinking, key).
+      settings = await bg.get("getSettings").catch(() => settings);
       log = [logHeader()];
       panel.setBusy(true);
       try {

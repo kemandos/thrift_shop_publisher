@@ -83,6 +83,7 @@ async function callStructured<S extends z.ZodTypeAny>(
     total.inputTokens += res.inputTokens;
     total.outputTokens += res.outputTokens;
     if (res.costUsd !== undefined) total.costUsd = (total.costUsd ?? 0) + res.costUsd;
+    if (res.reasoningTokens) total.reasoningTokens = (total.reasoningTokens ?? 0) + res.reasoningTokens;
     if (res.stop === "refusal") throw new AiError("Model declined the request", "refusal");
     if (res.stop === "truncated") {
       lastError = new AiError("Response was cut off", "truncated");

@@ -25,6 +25,8 @@ export interface StructuredReply {
   outputTokens: number;
   /** Exact cost in USD when the provider reports it (OpenRouter does). */
   costUsd?: number;
+  /** Thinking tokens among the output tokens, when reported. */
+  reasoningTokens?: number;
 }
 
 /** Minimal interface the listing logic needs from any model provider. */
@@ -105,9 +107,34 @@ export function strictJsonSchema(schema: z.ZodTypeAny): Record<string, unknown> 
   return js;
 }
 
+/** Request strictness per model learned from "No endpoints found" (see openRouterLlm). */
+const requestLevel = new Map<string, number>();
+
+/** The JSON object in a reply; tolerates code fences or text around it (JSON mode). */
+export function parseJsonObject(content: string): unknown {
+  if (!content) return null;
+  try {
+    return JSON.parse(content);
+  } catch {
+    const start = content.indexOf("{");
+    const end = content.lastIndexOf("}");
+    if (start < 0 || end <= start) return null;
+    try {
+      return JSON.parse(content.slice(start, end + 1));
+    } catch {
+      return null;
+    }
+  }
+}
+
 interface OpenRouterResponse {
   choices?: Array<{ message?: { content?: string | null; refusal?: string | null }; finish_reason?: string }>;
-  usage?: { prompt_tokens?: number; completion_tokens?: number; cost?: number };
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    cost?: number;
+    completion_tokens_details?: { reasoning_tokens?: number };
+  };
   error?: { message?: string; code?: number };
 }
 
@@ -122,6 +149,57 @@ export function openRouterLlm(opts: {
 }): LlmClient {
   const model = opts.model?.trim() || DEFAULT_OPENROUTER_MODEL;
   const f = opts.fetch ?? fetch;
+  /**
+   * How strict the request can be for this model (learned once per client):
+   * 0 = strict JSON schema (structured_outputs) + reasoning switch,
+   * 1 = JSON mode with the schema in the prompt (e.g. Qwen: no provider offers structured_outputs),
+   * 2 = JSON mode without the reasoning switch (last resort).
+   * Thrift validates every answer against the zod schema anyway (one retry on invalid output).
+   * Remembered per model for the lifetime of the worker/server, so only the first call pays the detour.
+   */
+  let level = requestLevel.get(model) ?? 0;
+
+  async function send(call: StructuredCall<z.ZodTypeAny>, userContent: unknown[]): Promise<{ res: Response; json: OpenRouterResponse }> {
+    const schema = strictJsonSchema(call.schema);
+    const jsonMode = level >= 1;
+    const system = jsonMode
+      ? `${call.system}\n\nAnswer with exactly one JSON object and nothing else (no prose, no code fences). It must match this JSON schema:\n${JSON.stringify(schema)}`
+      : call.system;
+    const body = {
+      model,
+      max_tokens: call.maxTokens,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: userContent },
+      ],
+      response_format: jsonMode
+        ? { type: "json_object" }
+        : { type: "json_schema", json_schema: { name: call.name, strict: true, schema } },
+      // Thinking is one setting for all models (default off): listing data rarely needs it, and
+      // Qwen/DeepSeek think by default (slow, billed as output).
+      ...(level < 2 ? { reasoning: { enabled: opts.thinking === true } } : {}),
+      // Only providers that honour these parameters; cheapest first.
+      provider: { require_parameters: true, sort: "price" },
+      usage: { include: true },
+    };
+    let res: Response;
+    try {
+      res = await f(OPENROUTER_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${opts.apiKey}`,
+          "Content-Type": "application/json",
+          "X-Title": opts.appName ?? "Thrift",
+        },
+        body: JSON.stringify(body),
+      });
+    } catch (e) {
+      throw new LlmRequestError(`OpenRouter nicht erreichbar: ${e instanceof Error ? e.message : String(e)}`);
+    }
+    const json = (await res.json().catch(() => ({}))) as OpenRouterResponse;
+    return { res, json };
+  }
+
   return {
     model,
     async structured(call) {
@@ -130,39 +208,13 @@ export function openRouterLlm(opts: {
           ? { type: "text", text: p.text }
           : { type: "image_url", image_url: { url: `data:${p.mediaType};base64,${p.data}` } },
       );
-      const body = {
-        model,
-        max_tokens: call.maxTokens,
-        messages: [
-          { role: "system", content: call.system },
-          { role: "user", content: userContent },
-        ],
-        response_format: {
-          type: "json_schema",
-          json_schema: { name: call.name, strict: true, schema: strictJsonSchema(call.schema) },
-        },
-        // Thinking is one setting for all models (default off): listing data rarely needs it, and
-        // Qwen/DeepSeek think by default (slow, billed as output).
-        reasoning: { enabled: opts.thinking === true },
-        // Only providers that honour response_format (and the reasoning switch); cheapest first.
-        provider: { require_parameters: true, sort: "price" },
-        usage: { include: true },
-      };
-      let res: Response;
-      try {
-        res = await f(OPENROUTER_URL, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${opts.apiKey}`,
-            "Content-Type": "application/json",
-            "X-Title": opts.appName ?? "Thrift",
-          },
-          body: JSON.stringify(body),
-        });
-      } catch (e) {
-        throw new LlmRequestError(`OpenRouter nicht erreichbar: ${e instanceof Error ? e.message : String(e)}`);
+      let { res, json } = await send(call, userContent);
+      // "No endpoints found that can handle the requested parameters": step down and try again.
+      while ((!res.ok || json.error) && level < 2 && /no endpoints found/i.test(json.error?.message ?? "")) {
+        level++;
+        requestLevel.set(model, level);
+        ({ res, json } = await send(call, userContent));
       }
-      const json = (await res.json().catch(() => ({}))) as OpenRouterResponse;
       if (!res.ok || json.error) {
         const msg = json.error?.message ?? `HTTP ${res.status}`;
         throw new LlmRequestError(
@@ -172,12 +224,7 @@ export function openRouterLlm(opts: {
       }
       const choice = json.choices?.[0];
       const content = choice?.message?.content ?? "";
-      let raw: unknown;
-      try {
-        raw = content ? JSON.parse(content) : null;
-      } catch {
-        raw = null;
-      }
+      const raw = parseJsonObject(content);
       const finish = choice?.finish_reason ?? "";
       return {
         raw,
@@ -185,6 +232,7 @@ export function openRouterLlm(opts: {
         inputTokens: json.usage?.prompt_tokens ?? 0,
         outputTokens: json.usage?.completion_tokens ?? 0,
         costUsd: typeof json.usage?.cost === "number" ? json.usage.cost : undefined,
+        reasoningTokens: json.usage?.completion_tokens_details?.reasoning_tokens,
       };
     },
   };

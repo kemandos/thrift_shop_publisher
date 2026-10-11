@@ -67,7 +67,7 @@ export interface FillContext {
   status?: (msg: string) => void;
   /** Title + description of this fill, given to the navigation model as context. */
   listingText?: string;
-  /** How long to wait for Vinted's own category/brand detection (default 5 s; continues as soon as both are set). */
+  /** How long to wait for Vinted's own category/brand detection (default 2 s; continues as soon as both are set). */
   vintedWaitMs?: number;
   /** Fill log for "Protokoll kopieren" (what was seen and chosen; no photos, no keys). */
   log?: (line: string) => void;
@@ -693,7 +693,12 @@ async function fillFormUnlocked(ctx: FillContext, photos: Photo[], style: Listin
   const brandTrigger = ctx.map.fields.brand ? locateField(ctx.map.fields.brand, ctx.doc) : null;
 
   say("Erkenne Marke, Größe und Zustand …");
-  const { result } = await ctx.ai.analyze({ photos, style, categoryOptions: [] });
+  const started = Date.now();
+  const { result, usage } = await ctx.ai.analyze({ photos, style, categoryOptions: [] });
+  ctx.log?.(
+    `Analyse: ${((Date.now() - started) / 1000).toFixed(1)} s · ${usage.inputTokens} Tokens rein / ${usage.outputTokens} raus` +
+      ` (davon Denken: ${usage.reasoningTokens ?? 0})${usage.costUsd !== undefined ? ` · ${(usage.costUsd * 100).toFixed(3)} US-Cent` : ""}`,
+  );
   const { attributes: a, text } = result;
   ctx.listingText = `${text.title}\n${text.description}`.slice(0, 3000);
   const filled: FieldKey[] = [];
@@ -714,7 +719,7 @@ async function fillFormUnlocked(ctx: FillContext, photos: Photo[], style: Listin
   say("Warte auf Vinteds Vorschlag für Kategorie und Marke …");
   // Already set before (by Vinted or the user) counts too: Thrift never overwrites it.
   const both = () => looksSet(catTrigger) && (looksSet(brandTrigger) || !a.brand);
-  await waitUntil(both, ctx.vintedWaitMs ?? 5000);
+  await waitUntil(both, ctx.vintedWaitMs ?? 2000);
   const catByVinted = looksSet(catTrigger);
   const brandByVinted = looksSet(brandTrigger);
   ctx.log?.(

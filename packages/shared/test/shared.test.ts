@@ -256,6 +256,50 @@ describe("openrouter", () => {
     ).rejects.toMatchObject({ kind: "request", message: "OpenRouter-Guthaben aufgebraucht" });
   });
 
+  it("Qwen: no endpoint for strict schemas → JSON mode with the schema in the prompt", async () => {
+    const noEndpoints = {
+      status: 404,
+      body: {
+        error: {
+          message:
+            "No endpoints found that can handle the requested parameters. To learn more about provider routing, visit: https://openrouter.ai/docs/guides/routing/provider-selection",
+          code: 404,
+        },
+      },
+    };
+    const f = fakeFetch([noEndpoints, reply("```json\n" + JSON.stringify(good) + "\n```"), reply({ choice: "M" })]);
+    const llm = openRouterLlm({ apiKey: "k", model: "qwen/qwen3.7-flash", fetch: f as unknown as typeof fetch });
+    const r = await analyze(llm, { photos: [photo], style });
+    expect(r.result.attributes.size).toBe("M");
+    const second = JSON.parse(f.mock.calls[1]![1].body as string);
+    expect(second.response_format).toEqual({ type: "json_object" });
+    expect(second.messages[0].content).toContain("It must match this JSON schema");
+    expect(second.reasoning).toEqual({ enabled: false });
+    // Learned: the next call on the same client goes straight to JSON mode (no failed request first).
+    const c = await choose(llm, { field: "size", attributes: attrs, options: ["S", "M"] });
+    expect(c.result.choice).toBe("M");
+    expect(f).toHaveBeenCalledTimes(3);
+    expect(JSON.parse(f.mock.calls[2]![1].body as string).response_format).toEqual({ type: "json_object" });
+  });
+
+  it("reports thinking tokens, so the log shows whether a model thought despite 'Denken aus'", async () => {
+    const f = fakeFetch([
+      {
+        body: {
+          choices: [{ message: { content: JSON.stringify({ choice: "M" }) }, finish_reason: "stop" }],
+          usage: { prompt_tokens: 900, completion_tokens: 700, cost: 0.0001, completion_tokens_details: { reasoning_tokens: 650 } },
+        },
+      },
+    ]);
+    const r = await choose(openRouterLlm({ apiKey: "k", model: "deepseek/deepseek-v4.1-flash", fetch: f as unknown as typeof fetch }), {
+      field: "size",
+      attributes: attrs,
+      options: ["S", "M"],
+    });
+    expect(r.usage).toMatchObject({ inputTokens: 900, outputTokens: 700, reasoningTokens: 650 });
+    expect(JSON.parse(f.mock.calls[0]![1].body as string).reasoning).toEqual({ enabled: false });
+  });
+
   it("uses the chosen model (Jev Router)", async () => {
     const f = fakeFetch([reply({ choice: "M" })]);
     const llm = openRouterLlm({ apiKey: "k", model: "typesafe/jev-router", fetch: f as unknown as typeof fetch });

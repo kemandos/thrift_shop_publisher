@@ -157,6 +157,8 @@ export const Usage = z.object({
   outputTokens: z.number().int().nonnegative(),
   /** Exact cost reported by the provider (OpenRouter), if any. */
   costUsd: z.number().nonnegative().optional(),
+  /** Of the output tokens, how many the model spent thinking (if reported). */
+  reasoningTokens: z.number().int().nonnegative().optional(),
 });
 export type Usage = z.infer<typeof Usage>;
 

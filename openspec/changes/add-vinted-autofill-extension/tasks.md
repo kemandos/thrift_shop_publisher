@@ -55,6 +55,8 @@
 
 - [x] 4.22 Qwen3.7 Flash and DeepSeek V4.1 Flash as cheaper text models; "Denken" switch for all chat models (default off), cheapest provider routing; verify unit and options tests
 
+- [x] 4.23 Qwen: JSON mode when no provider offers strict schemas (learned per model); log shows analysis time, tokens and thinking tokens and the current models; Vinted detection wait 2 s; settings re-read on every fill
+
 ## 5. Settings and Chrome release (spec: extension-settings)
 
 - [x] 5.1 Build popup (Artikel verkaufen, last cost, month total) and options page (AI mode, key with test, server URL/token, language and tone lists, closing texts); verify unit/UI tests and masked key display
