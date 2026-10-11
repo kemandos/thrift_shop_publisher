@@ -1,5 +1,6 @@
 import { LANGUAGE_LABELS, LANGUAGES, TONE_LABELS, TONES, type Language, type Tone } from "@thrift/shared";
 import type { Unresolved } from "../fill/fill";
+import { dictatedText, dictationError, speechRecognition, type Recognition } from "./dictation";
 import tailwindCss from "./tailwind.css?inline";
 
 /**
@@ -140,10 +141,10 @@ export function createPanel(doc: Document, h: PanelHandlers): Panel {
 
   // Own instruction, right where "Ausfüllen" is clicked: sent with this fill (in addition to the tone).
   const instr = el("textarea", {
-    class: "field mt-2 block min-h-[40px] resize-none text-[13px] leading-snug pointer-coarse:text-base",
+    class: "field block min-h-[40px] min-w-0 flex-1 resize-none text-[13px] leading-snug pointer-coarse:text-base",
     rows: "1",
     maxlength: "400",
-    placeholder: "Eigene Anweisung (optional), z. B. „Erwähne: Nichtraucherhaushalt“",
+    placeholder: "Eigene Anweisung (optional), z. B. „Länge betonen, kaum getragen“",
     "aria-label": "Eigene Anweisung für Titel und Beschreibung",
     "data-testid": "thrift-instructions",
   });
@@ -155,6 +156,55 @@ export function createPanel(doc: Document, h: PanelHandlers): Panel {
     grow();
     h.onInstructionsChange?.(instr.value);
   });
+
+  // Dictation (🎤): speech is appended to the instruction; a second tap stops.
+  const Speech = speechRecognition(doc.defaultView);
+  const mic = el(
+    "button",
+    { type: "button", class: `${ICON_BTN} border border-line`, "aria-label": "Anweisung diktieren", "aria-pressed": "false", "data-testid": "thrift-dictate" },
+    "🎤",
+  );
+  if (!Speech) mic.classList.add("hidden");
+  let rec: Recognition | null = null;
+  const stopDictation = () => rec?.stop();
+  mic.addEventListener("click", () => {
+    if (!Speech) return;
+    if (rec) return stopDictation();
+    const r = new Speech();
+    r.lang = lang.value === "en" ? "en-US" : "de-DE";
+    r.continuous = true;
+    r.interimResults = true;
+    const before = instr.value;
+    r.onresult = (e) => {
+      instr.value = dictatedText(before, e.results, 400);
+      grow();
+      h.onInstructionsChange?.(instr.value);
+    };
+    r.onerror = (e) => {
+      if (e.error !== "aborted") {
+        status.textContent = dictationError(e.error);
+      }
+    };
+    r.onend = () => {
+      rec = null;
+      mic.textContent = "🎤";
+      mic.setAttribute("aria-pressed", "false");
+      mic.classList.remove("bg-danger/10");
+    };
+    rec = r;
+    mic.textContent = "■";
+    mic.setAttribute("aria-pressed", "true");
+    mic.classList.add("bg-danger/10");
+    status.textContent = "Ich höre zu … (■ zum Beenden)";
+    try {
+      r.start();
+    } catch {
+      r.onend();
+      status.textContent = dictationError("start");
+    }
+  });
+  const instrRow = el("div", { class: "mt-2 flex items-start gap-2" });
+  instrRow.append(instr, mic);
 
   const actions = el("div", { class: "mt-2 flex items-center gap-2" });
   const fill = el("button", { class: "btn-primary h-[46px] flex-1 pointer-coarse:h-12", "data-testid": "thrift-fill" }, "✨ Ausfüllen");
@@ -188,7 +238,7 @@ export function createPanel(doc: Document, h: PanelHandlers): Panel {
     setTimeout(() => (logBtn.textContent = "Protokoll kopieren"), 2000);
   });
 
-  body.append(styleRow, instr, actions, notice, status, list, foot);
+  body.append(styleRow, instrRow, actions, notice, status, list, foot);
   card.append(head, body);
   root.append(card);
   doc.body.append(host);
@@ -222,8 +272,14 @@ export function createPanel(doc: Document, h: PanelHandlers): Panel {
   doc.addEventListener("focusin", updateKeyboard);
   doc.addEventListener("focusout", () => setTimeout(updateKeyboard, 50));
 
-  fill.addEventListener("click", () => h.onFill());
-  fillCompact.addEventListener("click", () => h.onFill());
+  fill.addEventListener("click", () => {
+    stopDictation();
+    h.onFill();
+  });
+  fillCompact.addEventListener("click", () => {
+    stopDictation();
+    h.onFill();
+  });
   rewrite.addEventListener("click", () => h.onRewrite());
   ok.addEventListener("click", () => h.onAcceptNotice());
   const styleChanged = () => h.onStyleChange(lang.value as Language, tone.value as Tone);

@@ -51,7 +51,11 @@ API keys and tokens SHALL be stored only in the extension's local storage on tha
 - **THEN** only its last 4 characters are shown
 
 ### Requirement: Listing defaults
-The settings SHALL let the user choose the default language (Deutsch, English) and tone from lists. There is no closing text; the own instruction lives in the panel.
+The settings SHALL let the user choose the default language (Deutsch, English) and tone from lists. There is no free closing text; the own instruction lives in the panel. Two switches, "Nichtraucherhaushalt" and "Tierfreier Haushalt" (both on by default), SHALL add a fixed last line to every description in the listing language, e.g. "Nichtraucherhaushalt · Tierfreier Haushalt".
+
+#### Scenario: Household line
+- **WHEN** both household switches are on (default) and the language is Deutsch
+- **THEN** every description ends with "Nichtraucherhaushalt · Tierfreier Haushalt", also after "Neu schreiben"
 
 #### Scenario: Default English
 - **WHEN** the default language is set to English

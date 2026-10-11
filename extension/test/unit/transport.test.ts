@@ -127,7 +127,7 @@ describe("openrouter transport with Microsoft Decision-1 for navigation", () => 
 describe("thinking switch", () => {
   const attrs = {
     itemType: "Shorts", categoryPath: [], brand: null, brandEvidence: "none", size: null, sizeEvidence: "none",
-    colors: [], material: null, condition: "gut", defects: [], features: [], priceMinEur: 5, priceMaxEur: 9,
+    colors: [], material: null, condition: "gut", defects: [], features: [], measurements: [], priceMinEur: 5, priceMaxEur: 9,
   } as never;
   const bodies: any[] = [];
   const fn = (async (_url: string, init?: RequestInit) => {

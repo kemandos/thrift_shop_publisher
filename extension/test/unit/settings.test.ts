@@ -68,7 +68,9 @@ describe("settings", () => {
     expect(mergeSettings({ customPrompt: "x".repeat(401) }, {}).customPrompt).toBe("");
   });
 
-  it("has no closing text any more", () => {
-    expect(styleFrom(mergeSettings({}, {})).closingText).toBe("");
+  it("always closes with the household line (both on by default, in the listing language)", () => {
+    expect(styleFrom(mergeSettings({}, {})).closingText).toBe("Nichtraucherhaushalt · Tierfreier Haushalt");
+    expect(styleFrom(mergeSettings({ petFree: false }, {}), { language: "en" }).closingText).toBe("Smoke-free home");
+    expect(styleFrom(mergeSettings({ smokeFree: false, petFree: false }, {})).closingText).toBe("");
   });
 });

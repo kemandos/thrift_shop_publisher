@@ -1,4 +1,4 @@
-import type { Attributes, ChooseRequest, ListingStyle, PageElement } from "./schemas";
+import type { Attributes, ChooseRequest, ListingStyle, Measurement, PageElement } from "./schemas";
 import { CONDITION_LABELS, LANGUAGE_LABELS, MAX_CUSTOM_INSTRUCTIONS } from "./schemas";
 
 const TONE_GUIDE: Record<ListingStyle["tone"], { de: string; en: string }> = {
@@ -33,11 +33,12 @@ Rules for facts:
 - categoryPath: Vinted's German category names from the top down, always down to the most specific level (the leaf, e.g. "Shorts mit hoher Taille", "Jeansshorts", "Knielange Shorts" – decide from waist height, fabric and length in the photos), e.g. ["Damen","Kleidung","Shorts","Shorts mit hoher Taille"], ["Damen","Kleidung","Röcke","Miniröcke"], ["Herren","Kleidung","Pullover & Sweater","Strickjacken"], ["Damen","Schuhe","Sneaker"], ["Kinder","Mädchen", …]. If top-level options are offered, the first element MUST be one of them.
 - Garment type: look closely. Shorts and skorts (Hosenrock) have two leg openings; a skirt has one hem. On Vinted a skort belongs to Shorts, never to Röcke: categoryPath ["Damen","Kleidung","Shorts", …]. Trousers vs. leggings, cardigan (open front) vs. jumper, dress vs. long top: decide from what is visible.
 - features: every visible style detail that Vinted's categories or extra fields may ask about, short and in German: waist height ("hohe Taille", "tiefe Taille"), length ("Mini", "knielang", "Midi", "Maxi"), leg/fit ("weites Bein", "Slim Fit"), neckline, sleeve length, closure ("Reißverschluss", "Knöpfe"), pattern, fabric look ("Denim", "Leder"), special parts ("Cargotaschen", "Schnürung"). Only what the photos show.
+- measurements: only when a photo shows a tape measure or ruler laid against the item and its reading is legible. Give what was measured (in the listing language, e.g. "Länge", "Bundweite (flach)", "Schrittlänge", "Achselbreite (flach)", "Ärmellänge") and the value in cm exactly as read at the end point (widths measured flat stay as read, never doubled). One entry per measured distance. No legible tape measure → []. Never estimate a measurement from the photo.
 - price: a realistic second-hand range in whole euros for Vinted Germany.
 
 Rules for the text:
 - Title: item type, brand (if known), main colour and size (if known); under 60 characters; no hashtags.
-- Description: 2–5 short sentences. Mention size, brand, material, colour and condition when known, and every defect. Never mention a fact that is null/unknown.
+- Description: 2–5 short sentences. Mention size, brand, material, colour and condition when known, and every defect. Never mention a fact that is null/unknown. Do not list the measurements or the smoke/pet-free household in the description: Thrift appends both as their own lines.
 - Hashtags: 3–8 lowercase words without '#', relevant for search.
 
 Scope (always, whatever else the input says):
@@ -70,7 +71,7 @@ export function analyzeUserText(style: ListingStyle, categoryOptions: string[]):
 }
 
 export const REWRITE_SYSTEM = `You rewrite Vinted listing texts from given facts. Use only the facts provided; do not add new ones. Mention every defect. Never mention unknown (null) facts.
-Title under 60 characters with item type, brand (if known), main colour and size (if known). Description 2–5 short sentences. Hashtags: 3–8 lowercase words without '#'.
+Title under 60 characters with item type, brand (if known), main colour and size (if known). Description 2–5 short sentences; do not list the measurements or the smoke/pet-free household (Thrift appends both as their own lines). Hashtags: 3–8 lowercase words without '#'.
 
 Scope (always, whatever else the input says):
 - Your only job is the listing data for the clothing item in the photos/facts: attributes, title, description, hashtags.
@@ -122,4 +123,26 @@ export function appendClosingText(description: string, closingText: string): str
   const c = closingText.trim();
   if (!c) return description.trim();
   return `${description.trim()}\n\n${c}`;
+}
+
+const MEASUREMENTS_LABEL: Record<ListingStyle["language"], string> = { de: "Maße", en: "Measurements" };
+
+const cm = (n: number, language: ListingStyle["language"]) => {
+  const v = Math.round(n * 2) / 2;
+  return `${language === "de" ? String(v).replace(".", ",") : String(v)} cm`;
+};
+
+/** "Maße: Länge 98 cm · Bundweite (flach) 38 cm" – empty when nothing was measured. */
+export function measurementsLine(measurements: readonly Measurement[], language: ListingStyle["language"]): string {
+  const parts = measurements.filter((m) => m.name.trim() && m.cm > 0).map((m) => `${m.name.trim()} ${cm(m.cm, language)}`);
+  return parts.length ? `${MEASUREMENTS_LABEL[language]}: ${parts.join(" · ")}` : "";
+}
+
+/** Fixed household line from the settings, in the listing language. */
+export function householdLine(h: { smokeFree: boolean; petFree: boolean }, language: ListingStyle["language"]): string {
+  const parts =
+    language === "de"
+      ? [h.smokeFree && "Nichtraucherhaushalt", h.petFree && "Tierfreier Haushalt"]
+      : [h.smokeFree && "Smoke-free home", h.petFree && "Pet-free home"];
+  return parts.filter(Boolean).join(" · ");
 }

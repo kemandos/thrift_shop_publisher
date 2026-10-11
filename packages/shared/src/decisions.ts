@@ -119,6 +119,7 @@ function itemState(attrs: Attributes, extra: Record<string, unknown> = {}, listi
       defects: attrs.defects,
       // What Haiku saw on the photos (waist height, length, fit …): the decision model sees no photos.
       features: attrs.features,
+      measurements: attrs.measurements,
     },
     ...extra,
   };

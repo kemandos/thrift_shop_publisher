@@ -58,6 +58,13 @@ export const ListingStyle = z.object({
 });
 export type ListingStyle = z.infer<typeof ListingStyle>;
 
+export const Measurement = z.object({
+  /** What was measured, in the listing language, e.g. "Länge", "Bundweite (flach)", "Schrittlänge". */
+  name: z.string().min(1).max(40),
+  cm: z.number().positive().max(300),
+});
+export type Measurement = z.infer<typeof Measurement>;
+
 /** Facts extracted from the photos. Never contains guessed size/brand. */
 export const Attributes = z.object({
   itemType: z.string().describe("Kind of garment in the listing language, e.g. 'Strickpullover'"),
@@ -78,6 +85,11 @@ export const Attributes = z.object({
    * navigation model (which sees no photos) choose leaves such as "Shorts mit hoher Taille".
    */
   features: z.array(z.string()).max(12).default([]),
+  /**
+   * Measurements read from a tape measure visible in a photo, e.g. { name: "Länge", cm: 98 }.
+   * Empty when no tape measure is readable (never estimated).
+   */
+  measurements: z.array(Measurement).max(8).default([]),
   priceMinEur: z.number().int().min(1),
   priceMaxEur: z.number().int().min(1),
 });

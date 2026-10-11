@@ -6,6 +6,7 @@ import {
   appendClosingText,
   CHOOSE_SYSTEM,
   chooseUserText,
+  measurementsLine,
   PICK_SYSTEM,
   pickUserText,
   REWRITE_SYSTEM,
@@ -20,6 +21,7 @@ import {
   ChooseResult,
   Condition,
   ListingText,
+  type ListingStyle,
   PickElementRequest,
   PickElementResult,
   RewriteRequest,
@@ -44,6 +46,8 @@ const ModelAttributes = z.object({
   priceMinEur: z.number(),
   priceMaxEur: z.number(),
   features: z.array(z.string()),
+  // Optional so JSON-mode answers without it still validate.
+  measurements: z.array(z.object({ name: z.string(), cm: z.number() })).default([]),
 });
 const ModelText = z.object({ title: z.string(), description: z.string(), hashtags: z.array(z.string()) });
 const ModelAnalyze = z.object({ attributes: ModelAttributes, text: ModelText });
@@ -106,17 +110,23 @@ function normalizeAttributes(raw: z.infer<typeof ModelAttributes>): Attributes {
     brand: raw.brandEvidence === "none" ? null : raw.brand,
     colors: raw.colors.slice(0, 3),
     features: raw.features.map((f) => f.trim()).filter(Boolean).slice(0, 12),
+    measurements: raw.measurements
+      .map((m) => ({ name: m.name.trim().slice(0, 40), cm: Math.round(m.cm * 2) / 2 }))
+      .filter((m) => m.name && m.cm > 0 && m.cm <= 300)
+      .slice(0, 8),
     priceMinEur: min,
     priceMaxEur: max,
   };
   return Attributes.parse(a);
 }
 
-function normalizeText(raw: z.infer<typeof ModelText>, closingText: string): ListingText {
-  // The seller's own closing text is kept verbatim; generated text never carries links or e-mails.
+function normalizeText(raw: z.infer<typeof ModelText>, attributes: Attributes, style: ListingStyle): ListingText {
+  // Measurements and the closing text (household line) are appended by Thrift, not written by the
+  // model, so they are never forgotten; generated text never carries links or e-mails.
+  const extra = [measurementsLine(attributes.measurements, style.language), style.closingText.trim()].filter(Boolean).join("\n");
   return ListingText.parse({
     title: stripLinksAndContacts(raw.title).slice(0, 100),
-    description: appendClosingText(stripLinksAndContacts(raw.description), closingText).slice(0, 3000),
+    description: appendClosingText(stripLinksAndContacts(raw.description), extra).slice(0, 3000),
     hashtags: raw.hashtags
       .map((h) => h.replace(/^#/, "").trim().toLowerCase())
       .filter((h) => h && !/[@/]|^www\.|https?/.test(h))
@@ -139,10 +149,8 @@ export async function analyze(llm: LlmClient, input: z.input<typeof AnalyzeReque
     system: ANALYZE_SYSTEM,
     content,
   });
-  const result = AnalyzeResult.parse({
-    attributes: normalizeAttributes(data.attributes),
-    text: normalizeText(data.text, req.style.closingText),
-  });
+  const attributes = normalizeAttributes(data.attributes);
+  const result = AnalyzeResult.parse({ attributes, text: normalizeText(data.text, attributes, req.style) });
   return { result, usage };
 }
 
@@ -155,7 +163,7 @@ export async function rewrite(llm: LlmClient, input: z.input<typeof RewriteReque
     system: REWRITE_SYSTEM,
     content: [{ type: "text", text: rewriteUserText(req.attributes, req.style) }],
   });
-  return { result: normalizeText(data, req.style.closingText), usage };
+  return { result: normalizeText(data, req.attributes, req.style), usage };
 }
 
 export async function choose(llm: LlmClient, input: z.input<typeof ChooseRequest>): Promise<AiResponse<ChooseResult>> {

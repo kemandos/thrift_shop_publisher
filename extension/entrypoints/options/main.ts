@@ -68,6 +68,8 @@ function render(s: Settings) {
   $("apiKeyMasked").textContent = s.apiKey ? `Gespeichert: ${maskSecret(s.apiKey)}` : "";
   renderModels("models", "model", s.model, TEXT_MODELS);
   $<HTMLInputElement>("thinking").checked = s.thinking;
+  $<HTMLInputElement>("smokeFree").checked = s.smokeFree;
+  $<HTMLInputElement>("petFree").checked = s.petFree;
   renderModels("navModels", "navModel", s.navModel, NAV_MODELS);
   renderModels("photoSizes", "photoMaxEdge", String(s.photoMaxEdge), PHOTO_SIZES);
   $<HTMLInputElement>("serverUrl").value = s.serverUrl;
@@ -90,6 +92,8 @@ async function save(): Promise<Settings> {
     model: (checked("model") || current.model) as ModelId,
     navModel: (checked("navModel") || current.navModel) as NavModelId,
     thinking: $<HTMLInputElement>("thinking").checked,
+    smokeFree: $<HTMLInputElement>("smokeFree").checked,
+    petFree: $<HTMLInputElement>("petFree").checked,
     photoMaxEdge: Number(checked("photoMaxEdge") || current.photoMaxEdge) as Settings["photoMaxEdge"],
     serverUrl: $<HTMLInputElement>("serverUrl").value.trim(),
     serverToken: token || current.serverToken,

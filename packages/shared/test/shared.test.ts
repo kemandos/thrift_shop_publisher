@@ -23,6 +23,8 @@ import {
   REWRITE_SYSTEM,
   sellerWishesBlock,
   stripLinksAndContacts,
+  measurementsLine,
+  householdLine,
 } from "../src";
 import { z } from "zod";
 
@@ -37,7 +39,7 @@ const attrs: Attributes = {
   material: "70 % Wolle",
   condition: "sehr_gut",
   defects: [],
-  features: [],
+  features: [], measurements: [],
   priceMinEur: 15,
   priceMaxEur: 22,
 };
@@ -94,6 +96,40 @@ describe("ai runner", () => {
     const call = parse.mock.calls[0]![0] as { model: string; messages: Array<{ content: Array<{ type: string }> }> };
     expect(call.model).toBe("claude-haiku-5-5");
     expect(call.messages[0]!.content.filter((c) => c.type === "image")).toHaveLength(1);
+  });
+
+  it("appends tape-measure measurements before the closing line and drops nonsense values", async () => {
+    const measured = {
+      ...good,
+      attributes: {
+        ...good.attributes,
+        measurements: [
+          { name: " Länge ", cm: 98.2 },
+          { name: "Bundweite (flach)", cm: 38.5 },
+          { name: "", cm: 10 },
+          { name: "Fehler", cm: 0 },
+        ],
+      },
+    };
+    const { client } = fakeClient([{ parsed: measured }]);
+    const r = await analyze(client, { photos: [photo], style, categoryOptions: [] });
+    expect(r.result.attributes.measurements).toEqual([
+      { name: "Länge", cm: 98 },
+      { name: "Bundweite (flach)", cm: 38.5 },
+    ]);
+    expect(r.result.text.description).toBe("Weicher Pullover.\n\nMaße: Länge 98 cm · Bundweite (flach) 38,5 cm\nVersand in 2 Tagen.");
+  });
+
+  it("measurement and household lines", () => {
+    expect(measurementsLine([], "de")).toBe("");
+    expect(measurementsLine([{ name: "Length", cm: 71.5 }], "en")).toBe("Measurements: Length 71.5 cm");
+    expect(householdLine({ smokeFree: true, petFree: true }, "de")).toBe("Nichtraucherhaushalt · Tierfreier Haushalt");
+    expect(householdLine({ smokeFree: false, petFree: true }, "en")).toBe("Pet-free home");
+  });
+
+  it("tells the model to read a tape measure and never estimate", () => {
+    expect(ANALYZE_SYSTEM).toMatch(/tape measure/);
+    expect(ANALYZE_SYSTEM).toMatch(/Never estimate a measurement/);
   });
 
   it("drops size and brand without evidence", async () => {

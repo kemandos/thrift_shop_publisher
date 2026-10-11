@@ -35,6 +35,7 @@ test.beforeAll(async () => {
         const p = JSON.parse(body);
         hits.push(`photos:${p.photos.length}`);
         hits.push(`wishes:${p.style.customInstructions ?? ""}`);
+        hits.push(`closing:${p.style.closingText ?? ""}`);
         return json({ result: { attributes: STUB_ATTRIBUTES, text: STUB_TEXT }, usage });
       }
       if (url === "/v1/choose") {
@@ -106,6 +107,8 @@ test("first fill shows the notice; after 'Verstanden' it fills everything via th
   await page.getByTestId("thrift-notice-ok").click();
   await expect(page.getByTestId("thrift-notice")).toBeHidden();
   // Own instruction, right next to "Ausfüllen", sent with this fill.
+  // Dictation button next to the instruction (Chrome has speech recognition).
+  await expect(page.getByTestId("thrift-dictate")).toBeVisible();
   await page.getByTestId("thrift-instructions").fill("Erwähne: Nichtraucherhaushalt");
   await page.getByTestId("thrift-fill").click();
   await expect(page.getByText("Fertig – bitte prüfen und selbst hochladen")).toBeVisible({ timeout: 60_000 });
@@ -123,6 +126,8 @@ test("first fill shows the notice; after 'Verstanden' it fills everything via th
   expect(state.category).toEqual(["Damen", "Kleidung", "Pullover & Sweatshirts", "Strickpullover"]);
   expect(hits).toContain("photos:2");
   expect(hits).toContain("wishes:Erwähne: Nichtraucherhaushalt");
+  // Household line from the settings (on by default), appended by Thrift.
+  expect(hits).toContain("closing:Nichtraucherhaushalt · Tierfreier Haushalt");
   // The instruction is remembered for the next item.
   const saved = await sw.evaluate(async () => {
     // @ts-expect-error chrome is available in the extension service worker
@@ -164,6 +169,11 @@ test("options page: language/tone are lists, key is stored masked, popup opens t
   await expect(page.locator("input[name=model]")).toHaveCount(2); // Haiku, Qwen3.7 Flash
   await expect(page.locator("#thinking")).not.toBeChecked();
   await page.locator("#thinking").check();
+  await expect(page.locator("#smokeFree")).toBeChecked();
+  await expect(page.locator("#petFree")).toBeChecked();
+  await page.locator("#petFree").uncheck();
+  await expect(page.locator("input[name=photoMaxEdge][value='1280']")).toBeChecked();
+  await page.locator("input[name=photoMaxEdge][value='1024']").check();
   await page.locator("input[name=model][value='qwen/qwen3.7-flash']").check();
   await page.fill("#apiKey", "sk-or-test-key-3fA9");
   await page.locator("input[name=language][value=en]").check();
@@ -182,6 +192,9 @@ test("options page: language/tone are lists, key is stored masked, popup opens t
     model: "qwen/qwen3.7-flash",
     navModel: "microsoft/microsoft-decision-1",
     thinking: true,
+    smokeFree: true,
+    petFree: false,
+    photoMaxEdge: 1024,
     language: "en",
   });
 

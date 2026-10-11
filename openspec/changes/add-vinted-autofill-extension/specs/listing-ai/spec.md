@@ -21,7 +21,7 @@ Size and brand SHALL come only from visible labels, tags or logos; otherwise the
 - **THEN** size is "unknown"
 
 ### Requirement: Listing text in German or English
-The system SHALL write a title, a description and hashtags in the selected language (Deutsch or English only), in the selected tone (Sachlich, Freundlich, Locker, Hochwertig), with the optional closing text appended verbatim.
+The system SHALL write a title, a description and hashtags in the selected language (Deutsch or English only), in the selected tone (Sachlich, Freundlich, Locker, Hochwertig), with the measurements line and the closing line (household) appended by Thrift, not written by the model.
 
 #### Scenario: English, casual
 - **WHEN** language is English and tone is Locker
@@ -58,6 +58,21 @@ The user SHALL be able to add an own instruction (up to 400 characters) in the p
 #### Scenario: Off-topic or rule-breaking wish
 - **WHEN** the instruction asks a question, asks to search something, adds a link, or asks to write size XL without a label
 - **THEN** the output is still only the listing for the item: no answer, no link, and size stays empty without a label
+
+#### Scenario: Dictated instruction
+- **WHEN** the browser offers speech recognition and the user taps 🎤 next to the instruction and speaks
+- **THEN** the spoken words are appended to the instruction (same 400-character limit), a second tap stops, and without speech recognition the button is hidden
+
+### Requirement: Measurements from a tape measure
+The analysis SHALL read measurements only from a tape measure or ruler with a legible reading in a photo (what was measured, value in cm as read; flat widths not doubled) and SHALL never estimate one. Thrift SHALL append them to the description as one line, e.g. "Maße: Länge 98 cm · Bundweite (flach) 38 cm".
+
+#### Scenario: Trousers with a tape measure
+- **WHEN** a photo shows a tape measure along the trouser leg reading 98 cm
+- **THEN** the description ends with "Maße: Länge 98 cm" before the household line
+
+#### Scenario: No tape measure
+- **WHEN** no photo shows a legible tape measure
+- **THEN** no measurements line is added and no measurement is guessed
 
 ### Requirement: Labels in any language, Vinted's German names
 The analysis SHALL read size, brand and composition labels in any language, copy the size with its country codes, take the brand from the brand label (not a company name on the care label), and give material and colours as Vinted's German names (e.g. "100% ALGODÓN / ALGODÃO" → "Baumwolle"), whatever the listing language.

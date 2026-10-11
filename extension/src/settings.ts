@@ -6,6 +6,7 @@ import {
   QWEN_FLASH_MODEL,
   DEFAULT_OPENROUTER_MODEL,
   HAIKU_MODEL,
+  householdLine,
   Language,
   MAX_CUSTOM_INSTRUCTIONS,
   Tone,
@@ -35,6 +36,9 @@ export const Settings = z.object({
   tone: Tone.default("freundlich"),
   /** Own instruction for the listing text, entered in the panel next to "Ausfüllen" (wording only). */
   customPrompt: z.string().max(MAX_CUSTOM_INSTRUCTIONS).catch(""),
+  /** Always appended to the description as a fixed line (owner's wish: on by default). */
+  smokeFree: z.boolean().catch(true),
+  petFree: z.boolean().catch(true),
   noticeAccepted: z.boolean().default(false),
   /** Panel position on vinted.de (per device, so the iPhone and the Mac can differ). */
   panelDock: z.enum(["bottom", "top"]).catch("bottom"),
@@ -92,7 +96,7 @@ export function styleFrom(
   return {
     language,
     tone,
-    closingText: "",
+    closingText: householdLine(s, language),
     customInstructions: (override?.customPrompt ?? s.customPrompt).trim().slice(0, MAX_CUSTOM_INSTRUCTIONS),
   };
 }
