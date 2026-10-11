@@ -43,6 +43,8 @@
 
 - [x] 4.16 From the second vinted.de log: precise analysis prompt (labels in any language, material/colours in Vinted's German names, size with country codes, brand label vs company name, skort → Shorts), ESP/EUR → EU tab, prefixed size chips, size never guessed, brand searched even when the list starts empty, material from Vinted's suggestion without a label; verify tests
 
+- [x] 4.17 Microsoft Decision-1 for navigation via OpenRouter's Decisions API (choice questions, confidence ≥ 60 %, "none" where allowed, chat fallback) in extension and server; settings with separate text/navigation model lists; verify unit tests with the real response shape
+
 ## 5. Settings and Chrome release (spec: extension-settings)
 
 - [x] 5.1 Build popup (Artikel verkaufen, last cost, month total) and options page (AI mode, key with test, server URL/token, language and tone lists, closing texts); verify unit/UI tests and masked key display

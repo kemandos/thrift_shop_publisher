@@ -52,17 +52,31 @@ export const HAIKU_MODEL = "anthropic/claude-haiku-5.5";
 /** OpenRouter's Jev Router: picks model and effort per request; cost is reported per call. */
 export const JEV_MODEL = "typesafe/jev-router";
 
-/** The only two models offered (both: image input + structured outputs). */
-export const OPENROUTER_MODELS = [
+export const DECISION_1_MODEL = "microsoft/microsoft-decision-1";
+
+/** Photos → listing text (image input + structured outputs). */
+export const TEXT_MODELS = [
   { id: HAIKU_MODEL, label: "Claude Haiku 5.5", note: "$0.10 / $0.50 pro 1 Mio. Tokens" },
   { id: JEV_MODEL, label: "Jev Router", note: "Wählt selbst, Preis je Anfrage" },
 ] as const;
-export type OpenRouterModel = (typeof OPENROUTER_MODELS)[number]["id"];
+
+/** Clicking/navigation: choosing picker options and finding form elements. */
+export const NAV_MODELS = [
+  { id: DECISION_1_MODEL, label: "Microsoft Decision-1", note: "Entscheidungsmodell · $0.042 / gratis" },
+  { id: HAIKU_MODEL, label: "Claude Haiku 5.5", note: "$0.10 / $0.50 pro 1 Mio. Tokens" },
+  { id: JEV_MODEL, label: "Jev Router", note: "Wählt selbst, Preis je Anfrage" },
+] as const;
+
+/** @deprecated use TEXT_MODELS / NAV_MODELS */
+export const OPENROUTER_MODELS = TEXT_MODELS;
+export type TextModel = (typeof TEXT_MODELS)[number]["id"];
+export type NavModel = (typeof NAV_MODELS)[number]["id"];
+export type OpenRouterModel = TextModel;
 
 /** Photos → listing text. */
-export const DEFAULT_OPENROUTER_MODEL: OpenRouterModel = HAIKU_MODEL;
-/** Clicking/navigation: choosing picker options and finding form elements. */
-export const DEFAULT_NAV_MODEL: OpenRouterModel = JEV_MODEL;
+export const DEFAULT_OPENROUTER_MODEL: TextModel = HAIKU_MODEL;
+/** Clicking/navigation: Microsoft Decision-1 (owner's choice, 2026-10-11). */
+export const DEFAULT_NAV_MODEL: NavModel = DECISION_1_MODEL;
 
 /**
  * Converts a zod schema into a JSON schema accepted by strict structured outputs:

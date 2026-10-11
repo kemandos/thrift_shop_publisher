@@ -8,7 +8,12 @@ import {
   ChooseRequest,
   costEur,
   type AiResponse,
+  type ChooseResult,
+  chooseByDecision,
+  type Decider,
   type LlmClient,
+  pickElementByDecision,
+  type PickElementResult,
   type FormMap,
   monthKey,
   pickElement,
@@ -26,8 +31,10 @@ import type { UsageStore } from "./usage";
 export interface AppDeps {
   /** OpenRouter or Anthropic client (see main.ts), or a test fake. */
   llm: LlmClient;
-  /** Model for choosing options / finding elements (Jev Router by default); falls back to `llm`. */
+  /** Chat model for choosing options / finding elements; falls back to `llm`. */
   navLlm?: LlmClient;
+  /** Decision model for choosing options / finding elements (Microsoft Decision-1); chat model as fallback. */
+  navDecider?: Decider;
   /** One bearer token per device; the index is the token id used for usage counts. */
   tokens: string[];
   autofillEnabled: boolean;
@@ -127,9 +134,26 @@ export function createApp(deps: AppDeps) {
 
   aiRoute(API_PATHS.analyze, AnalyzeRequest, analyze);
   aiRoute(API_PATHS.rewrite, RewriteRequest, rewrite);
-  const nav = deps.navLlm ?? deps.llm;
-  aiRoute(API_PATHS.choose, ChooseRequest, choose, nav);
-  aiRoute(API_PATHS.pickElement, PickElementRequest, pickElement, nav);
+  const nav = deps.navDecider ? deps.llm : (deps.navLlm ?? deps.llm);
+  /** Decision model first; if the (alpha) Decisions API fails, the chat model answers instead. */
+  const viaDecider =
+    <S extends z.ZodTypeAny, R>(byDecision: (d: Decider, input: z.output<S>) => Promise<AiResponse<R>>, byChat: AiRunner<S, R>): AiRunner<S, R> =>
+    async (llm, input) => {
+      if (!deps.navDecider) return byChat(llm, input);
+      try {
+        return await byDecision(deps.navDecider, input);
+      } catch (e) {
+        console.error(`[server] Decisions API failed, using ${llm.model}: ${(e as Error).message}`);
+        return byChat(llm, input);
+      }
+    };
+  aiRoute(API_PATHS.choose, ChooseRequest, viaDecider<typeof ChooseRequest, ChooseResult>(chooseByDecision, choose), nav);
+  aiRoute(
+    API_PATHS.pickElement,
+    PickElementRequest,
+    viaDecider<typeof PickElementRequest, PickElementResult>(pickElementByDecision, pickElement),
+    nav,
+  );
 
   app.notFound((c) => c.json({ error: "not found" }, 404));
   app.onError((err, c) => {

@@ -9,6 +9,7 @@ export const DEFAULT_MODEL = "anthropic/claude-haiku-5.5";
 export const PRICING_USD_PER_MTOK: Record<string, { input: number; output: number }> = {
   "anthropic/claude-haiku-5.5": { input: 0.1, output: 0.5 },
   "claude-haiku-5-5": { input: 0.1, output: 0.5 },
+  "microsoft/microsoft-decision-1": { input: 0.042, output: 0 },
   "claude-sonnet-5-5": { input: 2, output: 10 },
 };
 

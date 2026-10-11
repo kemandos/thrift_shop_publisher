@@ -18,15 +18,19 @@ The settings SHALL offer two modes: "OpenRouter (eigener Key)" (default; direct 
 - **THEN** all AI requests go to that server and no OpenRouter key is stored in the extension
 
 ### Requirement: Model choice
-The settings SHALL offer exactly two models, Claude Haiku 5.5 and Jev Router, chosen separately for "Fotos & Text" (default Claude Haiku 5.5) and "Klicken & Navigieren" (choosing picker options and finding form elements; default Jev Router). Other values SHALL fall back to these defaults.
+The settings SHALL offer, for "Fotos & Text", Claude Haiku 5.5 (default) or Jev Router, and for "Klicken & Navigieren", Microsoft Decision-1 (default, a decision model), Claude Haiku 5.5 or Jev Router. Other values SHALL fall back to these defaults.
 
 #### Scenario: Defaults
 - **WHEN** the user has not changed the models
-- **THEN** photo analysis and rewrites use Claude Haiku 5.5 and option choosing and element finding use Jev Router
+- **THEN** photo analysis and rewrites use Claude Haiku 5.5 and option choosing and element finding use Microsoft Decision-1
 
-#### Scenario: Only two models
-- **WHEN** the user opens the model choice
-- **THEN** only Claude Haiku 5.5 and Jev Router are listed
+#### Scenario: Decision model answers
+- **WHEN** Microsoft Decision-1 scores the options of a picker
+- **THEN** the extension acts only on an answer with at least 60 % confidence (a category tree level always takes the best option) and leaves the field to the user otherwise
+
+#### Scenario: Decisions API unavailable
+- **WHEN** OpenRouter's Decisions API (alpha) returns an error
+- **THEN** the text model answers the same question instead and filling continues
 
 ### Requirement: Secrets stay local
 API keys and tokens SHALL be stored only in the extension's local storage on that device, never synced, logged or shown in full after saving.

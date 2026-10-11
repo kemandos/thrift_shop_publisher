@@ -8,7 +8,7 @@ describe("settings", () => {
     expect(DEFAULT_SETTINGS).toMatchObject({
       mode: "openrouter",
       model: "anthropic/claude-haiku-5.5",
-      navModel: "typesafe/jev-router",
+      navModel: "microsoft/microsoft-decision-1",
       language: "de",
       tone: "freundlich",
       noticeAccepted: false,

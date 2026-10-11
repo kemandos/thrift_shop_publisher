@@ -67,8 +67,7 @@ See `proposal.md`. Constraints:
 
 **Models (only these two):**
 - `anthropic/claude-haiku-5.5` for photos → listing (analyse, rewrite). $0.10 / $0.50 per 1M tokens.
-- `typesafe/jev-router` for clicking and navigation (choosing picker options, AI element picking). It picks the underlying model per request; cost comes from OpenRouter's reported `usage.cost`.
-Both are switchable in the settings; nothing else is offered.
+- `microsoft/microsoft-decision-1` for clicking and navigation (choosing picker options, AI element picking): a decision model (Qwen3.5-9B base) that scores a fixed option list instead of writing text, via OpenRouter's Decisions API (`POST /api/alpha/decisions`, question type `choice`, options as `criteria`, answer `choice` + `confidence`); $0.042 per 1M input tokens, output free. Answers below 60 % confidence are not acted on; on API errors the text model answers instead. Jev Router and Haiku remain selectable for navigation.
 
 **Provider-neutral layer:** `packages/shared` defines an `LlmClient` (`structured()` → raw JSON, stop reason, tokens, cost). `openRouterLlm` is used by the extension; the optional server can also use `anthropicLlm` when only `ANTHROPIC_API_KEY` is set. Validation, the one retry and the evidence rules sit above it, identical for both.
 

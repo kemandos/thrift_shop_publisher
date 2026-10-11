@@ -159,7 +159,8 @@ test("options page: language/tone are lists, key is stored masked, popup opens t
   await expect(page.locator("input[name=tone]")).toHaveCount(4);
   await expect(page.locator("input[name=mode][value=openrouter]")).toBeChecked();
   await expect(page.locator("input[name=model][value='anthropic/claude-haiku-5.5']")).toBeChecked();
-  await expect(page.locator("input[name=navModel][value='typesafe/jev-router']")).toBeChecked();
+  await expect(page.locator("input[name=navModel][value='microsoft/microsoft-decision-1']")).toBeChecked();
+  await expect(page.locator("input[name=navModel]")).toHaveCount(3);
   await expect(page.locator("input[name=model]")).toHaveCount(2);
   await page.locator("input[name=model][value='typesafe/jev-router']").check();
   await page.fill("#apiKey", "sk-or-test-key-3fA9");
@@ -177,7 +178,7 @@ test("options page: language/tone are lists, key is stored masked, popup opens t
     mode: "openrouter",
     apiKey: "sk-or-test-key-3fA9",
     model: "typesafe/jev-router",
-    navModel: "typesafe/jev-router",
+    navModel: "microsoft/microsoft-decision-1",
     language: "en",
   });
 

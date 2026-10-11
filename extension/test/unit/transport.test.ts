@@ -47,6 +47,74 @@ describe("server transport", () => {
   });
 });
 
+describe("openrouter transport with Microsoft Decision-1 for navigation", () => {
+  const attrs = {
+    itemType: "Shorts", categoryPath: ["Damen", "Kleidung", "Shorts"], brand: null, brandEvidence: "none", size: "M",
+    sizeEvidence: "label", colors: ["Beige"], material: "Baumwolle", condition: "gut", defects: [], priceMinEur: 5, priceMaxEur: 9,
+  } as never;
+  const models = { model: "anthropic/claude-haiku-5.5", navModel: "microsoft/microsoft-decision-1" };
+
+  it("asks the Decisions API and maps the chosen key back to the option", async () => {
+    const calls: Array<{ url: string; body: any }> = [];
+    const fn = (async (url: string, init?: RequestInit) => {
+      calls.push({ url, body: JSON.parse(init!.body as string) });
+      return new Response(
+        JSON.stringify({
+          model: "microsoft/microsoft-decision-1-20261009",
+          answers: { pick: { type: "choice", choice: "o2", confidence: 0.91 } },
+          usage: { input_tokens: 128, output_tokens: 1, cost: 0.000005376 },
+        }),
+      );
+    }) as unknown as typeof fetch;
+    const t = openRouterTransport("sk-or-x", models, fn);
+    const r = await t.call("choose", { field: "category", mode: "tree", attributes: attrs, options: ["Röcke", "Shorts"] });
+    expect(r.result.choice).toBe("Shorts");
+    expect(r.usage).toEqual({ inputTokens: 128, outputTokens: 1, costUsd: 0.000005376 });
+    expect(calls[0]!.url).toBe("https://openrouter.ai/api/alpha/decisions");
+    expect(calls[0]!.body.model).toBe("microsoft/microsoft-decision-1");
+    expect(calls[0]!.body.questions.pick.type).toBe("choice");
+    expect(calls[0]!.body.questions.pick.criteria).toEqual({ o1: "Röcke", o2: "Shorts" }); // tree level: no "none"
+    expect(calls[0]!.body.state.item.type).toBe("Shorts");
+  });
+
+  it("acts only on confident answers; 'none' and low confidence leave the field open", async () => {
+    const reply = (choice: string, confidence: number) =>
+      (async () => new Response(JSON.stringify({ answers: { pick: { type: "choice", choice, confidence } }, usage: { input_tokens: 1, output_tokens: 1 } }))) as unknown as typeof fetch;
+    const ask = (f: typeof fetch) =>
+      openRouterTransport("sk-or-x", models, f).call("choose", { field: "other", fieldLabel: "Rocklänge", attributes: attrs, options: ["Mini", "Midi"] });
+    expect((await ask(reply("o1", 0.82))).result.choice).toBe("Mini");
+    expect((await ask(reply("o1", 0.41))).result.choice).toBeNull();
+    expect((await ask(reply("none", 0.95))).result.choice).toBeNull();
+  });
+
+  it("falls back to the text model when the Decisions API fails", async () => {
+    const urls: string[] = [];
+    const fn = (async (url: string) => {
+      urls.push(url);
+      if (url.includes("/alpha/decisions")) return new Response("{}", { status: 503 });
+      return new Response(
+        JSON.stringify({ choices: [{ message: { content: JSON.stringify({ choice: "Gut" }) }, finish_reason: "stop" }], usage: { prompt_tokens: 3, completion_tokens: 1 } }),
+      );
+    }) as unknown as typeof fetch;
+    const r = await openRouterTransport("sk-or-x", models, fn).call("choose", { field: "condition", attributes: attrs, options: ["Sehr gut", "Gut"] });
+    expect(r.result.choice).toBe("Gut");
+    expect(urls[1]).toBe("https://openrouter.ai/api/v1/chat/completions");
+  });
+
+  it("finds renamed fields with the decision model too", async () => {
+    const fn = (async () =>
+      new Response(JSON.stringify({ answers: { pick: { type: "choice", choice: "e2", confidence: 0.88 } }, usage: { input_tokens: 5, output_tokens: 1 } }))) as unknown as typeof fetch;
+    const r = await openRouterTransport("sk-or-x", models, fn).call("pickElement", {
+      goal: "Zustand",
+      elements: [
+        { id: "e1", role: "input", label: "Titel", text: "" },
+        { id: "e2", role: "combobox", label: "Artikelzustand", text: "" },
+      ],
+    });
+    expect(r.result.id).toBe("e2");
+  });
+});
+
 describe("openrouter transport", () => {
   const models = { model: "anthropic/claude-haiku-5.5", navModel: "typesafe/jev-router" };
   it("requires a key", () => {

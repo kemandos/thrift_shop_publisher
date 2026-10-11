@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import Anthropic from "@anthropic-ai/sdk";
 import { serve } from "@hono/node-server";
-import { anthropicLlm, openRouterLlm } from "@thrift/shared";
+import { anthropicLlm, isDecisionModel, openRouterDecider, openRouterLlm } from "@thrift/shared";
 import { createApp } from "./app";
 import { ConfigError, loadConfig } from "./config";
 import { FileUsageStore } from "./usage";
@@ -13,9 +13,12 @@ function start() {
     anthropic
       ? anthropicLlm(anthropic, model)
       : openRouterLlm({ apiKey: config.apiKey, model, appName: "Thrift (server)" });
+  // Navigation by a decision model (Microsoft Decision-1) when configured; chat model as fallback.
+  const decision = !anthropic && isDecisionModel(config.navModel);
   const app = createApp({
     llm: llmFor(config.model),
-    navLlm: llmFor(config.navModel),
+    navLlm: decision ? llmFor(config.model) : llmFor(config.navModel),
+    navDecider: decision ? openRouterDecider({ apiKey: config.apiKey, model: config.navModel, appName: "Thrift (server)" }) : undefined,
     tokens: config.tokens,
     autofillEnabled: config.autofillEnabled,
     formMap: config.formMap,

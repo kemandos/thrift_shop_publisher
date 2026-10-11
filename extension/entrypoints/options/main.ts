@@ -1,4 +1,4 @@
-import { LANGUAGE_LABELS, LANGUAGES, OPENROUTER_MODELS, TONE_LABELS, TONES, type Language, type Tone } from "@thrift/shared";
+import { LANGUAGE_LABELS, LANGUAGES, NAV_MODELS, TEXT_MODELS, TONE_LABELS, TONES, type Language, type Tone } from "@thrift/shared";
 import { bg } from "@/src/client";
 import { loadLocalSettings, maskSecret, mergeSettings, saveSettings, type Settings } from "@/src/settings";
 
@@ -21,11 +21,17 @@ function radioList<T extends string>(container: HTMLElement, name: string, value
 }
 
 type ModelId = Settings["model"];
+type NavModelId = Settings["navModel"];
 
-function renderModels(containerId: string, name: string, selected: ModelId) {
+function renderModels(
+  containerId: string,
+  name: string,
+  selected: string,
+  models: ReadonlyArray<{ id: string; label: string; note: string }>,
+) {
   const box = $(containerId);
   box.replaceChildren();
-  for (const m of OPENROUTER_MODELS) {
+  for (const m of models) {
     const label = document.createElement("label");
     label.className = "radio-row";
     const input = document.createElement("input");
@@ -55,8 +61,8 @@ function render(s: Settings) {
   showMode(s.mode);
   $<HTMLInputElement>("apiKey").value = "";
   $("apiKeyMasked").textContent = s.apiKey ? `Gespeichert: ${maskSecret(s.apiKey)}` : "";
-  renderModels("models", "model", s.model);
-  renderModels("navModels", "navModel", s.navModel);
+  renderModels("models", "model", s.model, TEXT_MODELS);
+  renderModels("navModels", "navModel", s.navModel, NAV_MODELS);
   $<HTMLInputElement>("serverUrl").value = s.serverUrl;
   $<HTMLInputElement>("serverToken").value = "";
   $("serverTokenMasked").textContent = s.serverToken ? `Gespeichert: ${maskSecret(s.serverToken)}` : "";
@@ -75,7 +81,7 @@ async function save(): Promise<Settings> {
     mode: (checked("mode") || "openrouter") as Settings["mode"],
     apiKey: key || current.apiKey,
     model: (checked("model") || current.model) as ModelId,
-    navModel: (checked("navModel") || current.navModel) as ModelId,
+    navModel: (checked("navModel") || current.navModel) as NavModelId,
     serverUrl: $<HTMLInputElement>("serverUrl").value.trim(),
     serverToken: token || current.serverToken,
     language: (checked("language") || "de") as Language,

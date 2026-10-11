@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { costEur, DEFAULT_FORM_MAP, type Attributes } from "@thrift/shared";
-import type { LlmClient } from "@thrift/shared";
+import type { Decider, LlmClient } from "@thrift/shared";
 import { createApp } from "../src/app";
 import { ConfigError, loadConfig } from "../src/config";
 import { FileUsageStore, MemoryUsageStore } from "../src/usage";
@@ -34,7 +34,7 @@ const analyzeBody = {
   style: { language: "de", tone: "freundlich", closingText: "" },
 };
 
-function setup(outputs: unknown[] = []) {
+function setup(outputs: unknown[] = [], navDecider?: Decider) {
   const parse = vi.fn(async () => {
     if (outputs.length === 0) throw new Error("no more outputs");
     return { raw: outputs.shift(), stop: "ok" as const, inputTokens: 1000, outputTokens: 200 };
@@ -46,6 +46,7 @@ function setup(outputs: unknown[] = []) {
     autofillEnabled: true,
     formMap: DEFAULT_FORM_MAP,
     usageStore,
+    navDecider,
     now: () => NOW,
   });
   return { app, parse, usageStore };
@@ -59,6 +60,25 @@ const post = (body: unknown, token?: string) => ({
 });
 
 describe("server app", () => {
+  it("choose uses the decision model (Decision-1) and falls back to the chat model if it fails", async () => {
+    const decide = vi.fn(async () => ({ choice: "o2", confidence: 0.9, usage: { inputTokens: 100, outputTokens: 1, costUsd: 0.0000042 } }));
+    const body = { field: "condition", attributes: attrs, options: ["Sehr gut", "Gut"] };
+    const ok = setup([], { model: "microsoft/microsoft-decision-1", decide });
+    const res = await ok.app.request("/v1/choose", post(body));
+    expect(await res.json()).toMatchObject({ result: { choice: "Gut" } });
+    expect(ok.parse).not.toHaveBeenCalled();
+
+    const broken = setup([{ choice: "Sehr gut" }], {
+      model: "microsoft/microsoft-decision-1",
+      decide: async () => {
+        throw new Error("503");
+      },
+    });
+    const res2 = await broken.app.request("/v1/choose", post(body));
+    expect(await res2.json()).toMatchObject({ result: { choice: "Sehr gut" } });
+    expect(broken.parse).toHaveBeenCalledOnce();
+  });
+
   it("health needs no auth", async () => {
     const res = await setup().app.request("/v1/health");
     expect(res.status).toBe(200);
@@ -192,7 +212,7 @@ describe("config", () => {
       provider: "openrouter",
       apiKey: "sk-or-x",
       model: "anthropic/claude-haiku-5.5",
-      navModel: "typesafe/jev-router",
+      navModel: "microsoft/microsoft-decision-1",
     });
   });
 

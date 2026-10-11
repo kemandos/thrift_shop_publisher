@@ -4,9 +4,12 @@ import {
   choose,
   DEFAULT_FORM_MAP,
   FormMap,
+  chooseByDecision,
+  isDecisionModel,
+  openRouterDecider,
   openRouterLlm,
   pickElement,
-  type LlmClient,
+  pickElementByDecision,
   rewrite,
   ServerConfig,
   Usage,
@@ -47,18 +50,36 @@ export function openRouterTransport(
   const key = apiKey.trim();
   if (!key) throw new TransportError("Kein OpenRouter-Key gespeichert", "no_key");
   const text = openRouterLlm({ apiKey: key, model: models.model, fetch: fetchFn });
-  const nav = openRouterLlm({ apiKey: key, model: models.navModel, fetch: fetchFn });
-  // Photos and text go to the text model; option choosing and element finding to the navigation model.
-  const ops = {
-    analyze: [analyze, text],
-    rewrite: [rewrite, text],
-    choose: [choose, nav],
-    pickElement: [pickElement, nav],
-  } as const;
+  // Navigation: a decision model (Microsoft Decision-1, Decisions API) or a chat model.
+  const decider = isDecisionModel(models.navModel) ? openRouterDecider({ apiKey: key, model: models.navModel, fetch: fetchFn }) : null;
+  const nav = decider ? text : openRouterLlm({ apiKey: key, model: models.navModel, fetch: fetchFn });
+
+  /** Decision model first; if the (alpha) Decisions API fails, the text model answers instead. */
+  async function decide<T>(byDecision: () => Promise<AiResponse<T>>, byChat: () => Promise<AiResponse<T>>): Promise<AiResponse<T>> {
+    if (!decider) return byChat();
+    try {
+      return await byDecision();
+    } catch (e) {
+      if ((e as { kind?: string }).kind === "unauthorized") throw e;
+      console.warn(`[thrift] Decisions API failed, falling back to ${models.model}: ${e instanceof Error ? e.message : e}`);
+      return byChat();
+    }
+  }
+
   return {
     async call(op, payload) {
-      const [fn, llm] = ops[op] as unknown as [(l: LlmClient, p: unknown) => Promise<AiResponse<never>>, LlmClient];
-      return fn(llm, payload);
+      const p = payload as never;
+      switch (op) {
+        case "analyze":
+          return analyze(text, p) as never;
+        case "rewrite":
+          return rewrite(text, p) as never;
+        case "choose":
+          return decide(() => chooseByDecision(decider!, p), () => choose(nav, p)) as never;
+        case "pickElement":
+          return decide(() => pickElementByDecision(decider!, p), () => pickElement(nav, p)) as never;
+      }
+      throw new TransportError(`Unbekannte Aktion ${String(op)}`, "server");
     },
     async formMap() {
       return DEFAULT_FORM_MAP;
