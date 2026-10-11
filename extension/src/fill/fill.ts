@@ -37,6 +37,7 @@ export interface AiApi {
     attributes: Attributes;
     pathSoFar?: string[];
     mode?: "tree" | "suggestions";
+    context?: string;
     options: string[];
   }): Promise<AiResponse<ChooseResult>>;
   pickElement(p: { goal: string; elements: { id: string; role: string; label: string; text: string }[] }): Promise<
@@ -64,6 +65,8 @@ export interface FillContext {
   ai: AiApi;
   pace: Pacer;
   status?: (msg: string) => void;
+  /** Title + description of this fill, given to the navigation model as context. */
+  listingText?: string;
   /** How long to wait for Vinted's own category/brand detection (default 5 s; continues as soon as both are set). */
   vintedWaitMs?: number;
   /** Fill log for "Protokoll kopieren" (what was seen and chosen; no photos, no keys). */
@@ -181,15 +184,21 @@ async function chooseOption(
   // Size is never guessed: only an exact match from the label, else the user decides (copy value).
   if (field === "size") return null;
   try {
-    const { result } = await ctx.ai.choose({ field, attributes: attrs, options: options.map((o) => o.label) });
+    const { result } = await ctx.ai.choose({ field, attributes: attrs, context: ctx.listingText, options: options.map((o) => o.label) });
     return result.choice ? (options.find((o) => o.label === result.choice) ?? null) : null;
   } catch {
     return null;
   }
 }
 
-async function withPicker<T>(ctx: FillContext, key: FieldKey, trigger: Element, run: (s: PickerSession) => Promise<T>): Promise<T> {
-  const session = await openPicker(trigger, ctx.doc, ctx.map.forbiddenClickText, ctx.pace);
+async function withPicker<T>(
+  ctx: FillContext,
+  key: FieldKey,
+  trigger: Element,
+  run: (s: PickerSession) => Promise<T>,
+  timeoutMs = 2000,
+): Promise<T> {
+  const session = await openPicker(trigger, ctx.doc, ctx.map.forbiddenClickText, ctx.pace, timeoutMs);
   ctx.log?.(`${key}: Auswahl geöffnet, ${session.options.length} Optionen: ${optionList(session.options)}`);
   if (!session.options.length || key === "category") ctx.log?.(`${key}: Aufbau der Auswahl:\n${session.outline(80)}`);
   try {
@@ -357,8 +366,11 @@ async function fillList(ctx: FillContext, key: ChooseField, attrs: Attributes, w
   }
   if (want && hasValue(trigger, want)) return want; // already set (e.g. by Vinted)
   let chosen: Option | null = null;
+  /** Click targets already tried (0 when an earlier round never got to clicking, e.g. list not loaded). */
+  let clicked = 0;
   // Up to two rounds: if the picker closed without taking the value, open it again and try other targets.
   for (let round = 0; round < 2; round++) {
+    // Brand: vinted.de loads its list on demand, so allow longer for the picker to appear.
     const result = await withPicker(ctx, key, trigger, async (session) => {
       let options = session.options;
       // The brand list may start empty (only a help row): search anyway.
@@ -368,6 +380,11 @@ async function fillList(ctx: FillContext, key: ChooseField, attrs: Attributes, w
         if (found) {
           options = found;
           ctx.log?.(`${key}: Suche „${want}“: ${optionList(options)}`);
+        } else if (!options.length) {
+          // vinted.de loads the brand list on first open: close and open once more.
+          ctx.log?.(`${key}: Markenliste noch nicht geladen – öffne erneut`);
+          await closePicker(trigger, ctx.doc);
+          return "retry" as const;
         }
       }
       if (key === "size" && want && round === 0) {
@@ -400,7 +417,8 @@ async function fillList(ctx: FillContext, key: ChooseField, attrs: Attributes, w
       let ok =
         multi && rowChecked(pick.el)
           ? true
-          : await selectOption(ctx, key, pick, multi ? () => confirmed() || rowChecked(pick.el) : confirmed, round);
+          : await selectOption(ctx, key, pick, multi ? () => confirmed() || rowChecked(pick.el) : confirmed, clicked);
+      clicked = 1; // the next round starts with the next click target
       // Multi-select pickers (colour) stay open; some only update the field when closed.
       if (pick.el.isConnected && isVisible(pick.el)) {
         await closePicker(trigger, ctx.doc);
@@ -409,7 +427,7 @@ async function fillList(ctx: FillContext, key: ChooseField, attrs: Attributes, w
       }
       ctx.log?.(`${key}: Feld zeigt jetzt „${displayedValue(trigger)}“`);
       return ok ? ("ok" as const) : ("retry" as const);
-    });
+    }, key === "brand" ? 5000 : 2000);
     if (result === "ok") return chosen!.label;
     if (result === "none") return null;
     await ctx.pace.step();
@@ -514,6 +532,7 @@ async function fillCategory(ctx: FillContext, attrs: Attributes, trigger: Elemen
       if (!pick) {
         try {
           const { result } = await ctx.ai.choose({
+            context: ctx.listingText,
             field: "category",
             attributes: attrs,
             pathSoFar: path,
@@ -622,6 +641,7 @@ async function fillExtraFields(ctx: FillContext, attrs: Attributes): Promise<voi
       let pick: Option | null = direct.length === 1 ? direct[0]! : null;
       if (!pick) try {
         const { result } = await ctx.ai.choose({
+          context: ctx.listingText,
           field: "other",
           fieldLabel: label.slice(0, 60),
           attributes: attrs,
@@ -674,6 +694,7 @@ async function fillFormUnlocked(ctx: FillContext, photos: Photo[], style: Listin
   say("Erkenne Marke, Größe und Zustand …");
   const { result } = await ctx.ai.analyze({ photos, style, categoryOptions: [] });
   const { attributes: a, text } = result;
+  ctx.listingText = `${text.title}\n${text.description}`.slice(0, 3000);
   const filled: FieldKey[] = [];
   const unresolved: Unresolved[] = [];
   const done = (k: FieldKey, ok: boolean, value: string) => {

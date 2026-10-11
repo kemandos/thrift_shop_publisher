@@ -47,6 +47,8 @@
 
 - [x] 4.18 Brand typed only into a search box that appeared with the picker (never Vinted's header catalog search); fixture with a header search and radio brand rows
 
+- [x] 4.19 Brand picker loaded on demand: longer wait and one reopen; retry rounds skip only click targets already tried; navigation model gets the listing text (details like "hohe Taille"); analysis path always to the leaf; verify slow-brand fixture test
+
 ## 5. Settings and Chrome release (spec: extension-settings)
 
 - [x] 5.1 Build popup (Artikel verkaufen, last cost, month total) and options page (AI mode, key with test, server URL/token, language and tone lists, closing texts); verify unit/UI tests and masked key display

@@ -102,6 +102,10 @@ When the size picker has system tabs (S/M/L, EU, FR, IT, UK, US), the extension 
 ### Requirement: Brand only with an exact match
 If Vinted does not detect the brand, the extension SHALL type it into the brand picker's own search box and select it only when an option matches the name exactly; otherwise the brand is offered as a copy value. Only a search box that appeared with the picker SHALL be used, never one that was visible before (such as Vinted's catalog search in the header).
 
+#### Scenario: Brand list loads late
+- **WHEN** the brand picker is still empty on first opening (vinted.de loads the list on demand)
+- **THEN** the extension waits up to about 5 seconds for "Marke suchen" and otherwise opens the picker once more
+
 #### Scenario: Catalog search in the header
 - **WHEN** the page has a catalog search at the top and the brand picker has "Marke suchen"
 - **THEN** the brand is typed into "Marke suchen" and the catalog search stays untouched

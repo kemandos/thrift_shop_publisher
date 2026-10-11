@@ -114,6 +114,8 @@ export const ChooseRequest = z.object({
   pathSoFar: z.array(z.string()).default([]),
   /** category only: "tree" = one level, always the closest; "suggestions" = Vinted's suggestions, only if one really fits. */
   mode: z.enum(["tree", "suggestions"]).default("tree"),
+  /** The generated listing (title + description): details the photos showed, e.g. "hohe Taille". */
+  context: z.string().max(3000).optional(),
   options: z.array(z.string().max(200)).min(1).max(300),
 });
 export type ChooseRequest = z.infer<typeof ChooseRequest>;

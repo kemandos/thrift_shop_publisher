@@ -254,8 +254,11 @@
     });
 
     // Brand: like vinted.de – own search box "Marke suchen", "Beliebte Marken" first, rows with radio buttons.
+    let brandOpens = 0;
     inputs.brand.addEventListener("click", () => {
       const panel = makePanel(inputs.brand);
+      // ?slowbrand=1: like vinted.de on a cold start, the first opening stays empty (list not loaded yet).
+      if (params.get("slowbrand") === "1" && brandOpens++ === 0) return;
       const search = mk("input"); search.placeholder = "Marke suchen"; panel.append(search);
       const holder = mk("ul"); panel.append(holder);
       const POPULAR = ["Zara", "H&M", "Shein", "Primark"];

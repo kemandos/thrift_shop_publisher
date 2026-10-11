@@ -282,7 +282,7 @@ export function findPickerSearch(doc: Document, session: PickerSession): HTMLInp
 /** Types into the picker's search box and returns the options shown for that query. */
 export async function searchInPicker(doc: Document, session: PickerSession, query: string, pace: Pacer): Promise<Option[] | null> {
   // The picker may render its search box a moment after opening.
-  const search = await waitFor(() => findPickerSearch(doc, session), 1500);
+  const search = await waitFor(() => findPickerSearch(doc, session), 4000);
   if (!search) return null;
   await typeText(search, query, pace);
   await pace.step();

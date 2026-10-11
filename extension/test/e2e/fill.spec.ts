@@ -217,6 +217,16 @@ test.describe("vinted.de structure (div rows, search, suggestions)", () => {
     expect(log.join("\n")).toContain("brand: Suche „COS“: COS | Cos Bar");
   });
 
+  test("brand list not loaded on first open: the picker is opened once more", async ({ page }) => {
+    await routeVinted(page);
+    await page.goto("https://www.vinted.de/items/new?variant=vinted&slowbrand=1");
+    await page.addScriptTag({ content: harness });
+    await addPhotos(page, 1);
+    const { state, log } = await runFill(page);
+    expect(state.brand).toBe("COS");
+    expect(log.join("\n")).toContain("brand: Markenliste noch nicht geladen – öffne erneut");
+  });
+
   test("brand without an exact match is left for the user (never a similar name)", async ({ page }) => {
     await open(page, "vinted");
     await addPhotos(page, 1);

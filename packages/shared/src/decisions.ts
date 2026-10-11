@@ -102,9 +102,10 @@ export function openRouterDecider(opts: { apiKey: string; model?: string; fetch?
   };
 }
 
-/** Facts the decision model needs about the item (no photos, no text). */
-function itemState(attrs: Attributes, extra: Record<string, unknown> = {}) {
+/** Facts the decision model needs about the item (no photos): attributes plus the listing text. */
+function itemState(attrs: Attributes, extra: Record<string, unknown> = {}, listing?: string) {
   return {
+    ...(listing ? { listing } : {}),
     item: {
       type: attrs.itemType,
       categoryPath: attrs.categoryPath,
@@ -141,7 +142,7 @@ export async function chooseByDecision(decider: Decider, input: z.input<typeof C
 
   let d: Decision;
   try {
-    d = await decider.decide({ state: itemState(req.attributes, { pathSoFar: req.pathSoFar }), instructions, options });
+    d = await decider.decide({ state: itemState(req.attributes, { pathSoFar: req.pathSoFar }, req.context), instructions, options });
   } catch (e) {
     const kind = e instanceof LlmRequestError && e.status === 401 ? "unauthorized" : "request";
     throw new AiError(e instanceof Error ? e.message : String(e), kind);

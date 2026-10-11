@@ -67,7 +67,13 @@ describe("openrouter transport with Microsoft Decision-1 for navigation", () => 
       );
     }) as unknown as typeof fetch;
     const t = openRouterTransport("sk-or-x", models, fn);
-    const r = await t.call("choose", { field: "category", mode: "tree", attributes: attrs, options: ["Röcke", "Shorts"] });
+    const r = await t.call("choose", {
+      field: "category",
+      mode: "tree",
+      attributes: attrs,
+      context: "Beige Shorts mit hoher Taille",
+      options: ["Röcke", "Shorts"],
+    });
     expect(r.result.choice).toBe("Shorts");
     expect(r.usage).toEqual({ inputTokens: 128, outputTokens: 1, costUsd: 0.000005376 });
     expect(calls[0]!.url).toBe("https://openrouter.ai/api/alpha/decisions");
@@ -75,6 +81,7 @@ describe("openrouter transport with Microsoft Decision-1 for navigation", () => 
     expect(calls[0]!.body.questions.pick.type).toBe("choice");
     expect(calls[0]!.body.questions.pick.criteria).toEqual({ o1: "Röcke", o2: "Shorts" }); // tree level: no "none"
     expect(calls[0]!.body.state.item.type).toBe("Shorts");
+    expect(calls[0]!.body.state.listing).toBe("Beige Shorts mit hoher Taille"); // details only the text has
   });
 
   it("acts only on confident answers; 'none' and low confidence leave the field open", async () => {
